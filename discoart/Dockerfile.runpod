@@ -22,21 +22,17 @@ RUN pip install \
 
 RUN jupyter nbextension enable --py widgetsnbextension
 
-# copy will almost always invalid the cache
-# COPY . /discoart/
-
-# RUN cd /discoart && pip install --compile .
-# COPY discoart.ipynb /home/jovyan/
-
 RUN pip install discoart
 ADD start.sh /start.sh
-COPY examples /workspace/examples
 
+### Discoart ENV Params ###
 # more verbose logs
 # ENV DISCOART_LOG_LEVEL='DEBUG'
 
 # opt-out from cloud backup
 ENV DISCOART_OPTOUT_CLOUD_BACKUP='1'
+# use a custom output directory for all images and results
+ENV DISCOART_OUTPUT_DIR='/workspace/out'
 
 # disable ipython dependency
 # ENV DISCOART_DISABLE_IPYTHON='1'
@@ -53,15 +49,18 @@ ENV DISCOART_OPTOUT_CLOUD_BACKUP='1'
 # use a custom list of models file
 # ENV DISCOART_MODELS_YAML='path/to/your-models.yml'
 
-# use a custom output directory for all images and results
-ENV DISCOART_OUTPUT_DIR='/workspace/out'
-
-# use a custom cache directory for models and downloads
-ENV DISCOART_CACHE_DIR='/models'
+# use a custom cache directory for models and downloads (except for CLIP models, apparently?)
+# ENV DISCOART_CACHE_DIR='/models'
 
 # disable the listing of diffusion models on Github, remote diffusion models allows user to use latest models without updating the codebase.
-ENV DISCOART_DISABLE_REMOTE_MODELS='1'
+# ENV DISCOART_DISABLE_REMOTE_MODELS='1'
 
 WORKDIR /workspace
+
+# Make examples area that will survive future updates without getting entangled in /workspace volume
+COPY examples /examples
+RUN ln -s /examples /workspace
+
+RUN rm -Rf /root/.cache && mkdir -p /models/.cache && ln -s /models/.cache /root
 CMD [ "/start.sh" ]
 EXPOSE 8888
