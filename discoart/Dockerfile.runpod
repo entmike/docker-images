@@ -57,7 +57,7 @@ ENV DISCOART_OPTOUT_CLOUD_BACKUP='1'
 ENV DISCOART_OUTPUT_DIR='/workspace/out'
 
 # use a custom cache directory for models and downloads
-ENV DISCOART_CACHE_DIR='/workspace/models'
+ENV DISCOART_CACHE_DIR='/models'
 
 # disable the listing of diffusion models on Github, remote diffusion models allows user to use latest models without updating the codebase.
 ENV DISCOART_DISABLE_REMOTE_MODELS='1'
