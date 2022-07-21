@@ -1,0 +1,4 @@
+clip/*
+discoart/*
+matplotlib/*
+torch/hub/checkpoints/*

@@ -1,4 +1,5 @@
-FROM nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
+ARG base_image
+FROM ${base_image}
 
 # Set bash as default shell
 ENV SHELL=/bin/bash
