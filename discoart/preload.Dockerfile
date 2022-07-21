@@ -4,7 +4,7 @@ RUN mkdir -p /models
 
 # Bust into layers
 COPY models/torch /models/.cache/torch
-COPY models/clip /models/.cache/clip
-COPY models/discoart /models/.cache/discoart
+COPY models/clip/base /models/.cache/clip
+COPY models/discoart/base /models/.cache/discoart
 
 CMD [ "/bin/bash" ]
