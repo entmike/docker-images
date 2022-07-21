@@ -66,6 +66,8 @@ ENV DISCOART_OUTPUT_DIR='/workspace/out'
 
 WORKDIR /workspace
 
+add workspace/welcome.ipynb /workspace/welcome.ipynb
+
 RUN rm -Rf /root/.cache && mkdir -p /models/.cache && ln -s /models/.cache /root
 CMD [ "/start.sh" ]
 EXPOSE 8888
