@@ -16,6 +16,8 @@ fi
 if [[ $JUPYTER_PASSWORD ]]
 then
     ln -sf /examples /workspace
+    ln -sf /root/welcome.ipynb /workspace
+    
     cd /
     jupyter lab --allow-root --no-browser --port=8888 --ip=* \
         --ServerApp.terminado_settings='{"shell_command":["/bin/bash"]}' \

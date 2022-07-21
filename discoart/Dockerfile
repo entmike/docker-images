@@ -30,6 +30,7 @@ RUN pip install discoart
 ADD start.sh /start.sh
 ADD welcome-banner.txt /root/welcome-banner.txt
 COPY examples /examples
+ADD welcome.ipynb /root/welcome.ipynb
 
 RUN echo 'cat ~/welcome-banner.txt' >> ~/.bashrc &&\
     echo 'cd /workspace' >> ~/.bashrc
@@ -65,8 +66,6 @@ ENV DISCOART_OUTPUT_DIR='/workspace/out'
 # ENV DISCOART_DISABLE_REMOTE_MODELS='1'
 
 WORKDIR /workspace
-
-add workspace/welcome.ipynb /workspace/welcome.ipynb
 
 RUN rm -Rf /root/.cache && mkdir -p /models/.cache && ln -s /models/.cache /root
 CMD [ "/start.sh" ]
