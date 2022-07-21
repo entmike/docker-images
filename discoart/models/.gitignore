@@ -1,4 +1,10 @@
-clip/*
-discoart/*
+clip/base/*
+!clip/base/README.md
+clip/extra/*
+!clip/extra/README.md
+discoart/base/*
+!discoart/base/README.md
+discoart/extra/*
+!discoart/extra/README.md
 matplotlib/*
 torch/hub/checkpoints/*
