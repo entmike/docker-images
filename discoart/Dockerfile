@@ -26,7 +26,13 @@ RUN pip install \
 RUN jupyter nbextension enable --py widgetsnbextension
 
 RUN pip install discoart
+
 ADD start.sh /start.sh
+ADD welcome-banner.txt /root/welcome-banner.txt
+COPY examples /examples
+
+RUN echo 'cat ~/welcome-banner.txt' >> ~/.bashrc &&\
+    echo 'cd /workspace' >> ~/.bashrc
 
 ### Discoart ENV Params ###
 # more verbose logs
@@ -59,10 +65,6 @@ ENV DISCOART_OUTPUT_DIR='/workspace/out'
 # ENV DISCOART_DISABLE_REMOTE_MODELS='1'
 
 WORKDIR /workspace
-
-# Make examples area that will survive future updates without getting entangled in /workspace volume
-COPY examples /examples
-RUN ln -s /examples /workspace
 
 RUN rm -Rf /root/.cache && mkdir -p /models/.cache && ln -s /models/.cache /root
 CMD [ "/start.sh" ]
