@@ -17,6 +17,7 @@ if [[ $JUPYTER_PASSWORD ]]
 then
     ln -sf /examples /workspace
     ln -sf /root/welcome.ipynb /workspace
+    pip install discoart --upgrade
     
     cd /
     jupyter lab --allow-root --no-browser --port=8888 --ip=* \
