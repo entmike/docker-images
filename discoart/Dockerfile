@@ -1,19 +1,24 @@
 ARG base_image
 FROM ${base_image}
 
-# Set bash as default shell
-ENV SHELL=/bin/bash
+# Set bash as default shell, non-interactive
+ENV DEBIAN_FRONTEND noninteractive\
+    SHELL=/bin/bash
 
-# Create a working directory
-WORKDIR /app/
+# Create workspace working directory
+WORKDIR /workspace
 
 # Build with some basic utilities
 RUN apt-get update && apt-get install -y \
     python3-pip \
     apt-utils \
-    git wget curl &&\
+    git wget curl nodejs npm openssh-server zip unzip ffmpeg &&\
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+
+# Node
+RUN curl -sL https://deb.nodesource.com/setup_16.x -o /tmp/nodesource_setup.sh
+RUN bash /tmp/nodesource_setup.sh
 
 # alias python='python3'
 RUN ln -s /usr/bin/python3 /usr/bin/python
@@ -65,8 +70,7 @@ ENV DISCOART_OUTPUT_DIR='/workspace/out'
 # disable the listing of diffusion models on Github, remote diffusion models allows user to use latest models without updating the codebase.
 # ENV DISCOART_DISABLE_REMOTE_MODELS='1'
 
-WORKDIR /workspace
-
 RUN rm -Rf /root/.cache && mkdir -p /models/.cache && ln -s /models/.cache /root
+ADD workermode /workermode
 CMD [ "/start.sh" ]
 EXPOSE 8888
