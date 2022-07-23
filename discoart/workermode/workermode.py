@@ -2,6 +2,9 @@ from loguru import logger
 import time, requests, json, os
 from discoart import create
 from dotenv import load_dotenv
+from docarray import Document
+from docarray import DocumentArray
+import traceback
 
 # Function definitions
 def parse_seed(details):
@@ -76,34 +79,41 @@ def do_job(args, details):
     start_time = time.time()
 
     # Run Disco
-    da = create(
-        name_docarray = docname,
-        n_batches = 1,
-        batch_size = 1,
-        seed = seed,
-        text_prompts = text_prompts,
-        steps=steps,
-        # steps=50,  # Go faster while developing/testing
-        # TODO: clip, diffusion, all the other params
-        width_height = width_height
-    )
+    try:
+        da = create(
+            name_docarray = docname,
+            n_batches = 1,
+            batch_size = 1,
+            seed = seed,
+            text_prompts = text_prompts,
+            steps=steps,
+            # steps=10,  # Go faster while developing/testing
+            # TODO: clip, diffusion, all the other params
+            width_height = width_height
+        )
 
-    # Grab end timestamp
-    end_time = time.time()
+        # Grab end timestamp
+        end_time = time.time()
 
-    # Capture duration
-    duration = end_time - start_time
-    post_process(da, details)
-    deliver(args, da, details, duration)
+        # Capture duration
+        duration = end_time - start_time
 
+        post_process(da, details)
+        deliver(args, da, details, duration)
+    except Exception as e:
+        connected = True #TODO: what?
+        if connected:
+            tb = traceback.format_exc()
+            logger.error(f"Bad job detected.\n\n{e}\n\n{tb}")
+            values = {"message": f"Job failed:\n\n{e}", "traceback": tb}
+            r = requests.post(f"{args.dd_api}/reject/{args.agent}/{details['uuid']}", data=values)
+        else:
+            logger.error(f"Error.  Check your API host is running at that location.  Also check your own internet connectivity.  Exception:\n{tb}")
+            raise(tb)
+
+## Post-processing
 def post_process(da, details):
-    ## Post-processing
-
-    # Inspect Document results
-    # https://docarray.jina.ai/fundamentals/document/
-    from docarray import Document
-    from docarray import DocumentArray
-
+    
     # Save sprite sheet
     sprites = f"{details['uuid']}_sprites.png"
     da[0].chunks.plot_image_sprites(
