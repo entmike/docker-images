@@ -12,14 +12,16 @@ def parse_seed(details):
     random.seed()
     seed = random.randint(0, 2**32)
     
-    if "seed" in details:
-        if details["seed"] != -1 and details["seed"] != "random_seed":
-            logger.info(f"🌱Specific seed in job selected.  Using {seed} in discoart...")        
-            seed = details["seed"]
-    
+    if "set_seed" in details:
+        if details["set_seed"] != -1 and details["set_seed"] != "random_seed":
+            seed = details["set_seed"]
+            logger.info(f"🌱Specific seed in job selected.  Using {seed} in discoart...")   
     return seed
             
 def parse_text_prompts(details):
+    if "text_prompts" in details:
+        return details["text_prompts"]
+    # Legacy
     if "text_prompt" in details:
         tp = details["text_prompt"]
 
@@ -45,7 +47,7 @@ def parse_width_height(details):
     w_h = [1024, 768]
     if "width_height" in details:
         logger.info("Width/Height detected")
-        w_h = details["width_height"]
+        return details["width_height"]
     if type(details["shape"]) == str:
         logger.info("Legacy Shape string detected")
         shapes = {
@@ -62,13 +64,11 @@ def parse_width_height(details):
 
 def do_job(args, details):
     docname = f"discoart-{details['uuid']}"
-    steps = details['steps']
     text_prompts = parse_text_prompts(details)
     width_height = parse_width_height(details)
+    diffusion_model = details["diffusion_model"]
     seed = parse_seed(details)
 
-    # Sanity Check
-    text_prompts, width_height, seed
     import os, time
 
     ### Disable log spam
@@ -81,15 +81,42 @@ def do_job(args, details):
     # Run Disco
     try:
         da = create(
+            # FD-hardcoded
             name_docarray = docname,
             n_batches = 1,
             batch_size = 1,
-            seed = seed,
+            display_rate = 20,
+            # User params
             text_prompts = text_prompts,
-            steps=steps,
-            # steps=10,  # Go faster while developing/testing
-            # TODO: clip, diffusion, all the other params
-            width_height = width_height
+            seed = seed,
+            steps=details['steps'],
+            skip_steps = 0,
+            width_height = width_height,
+            diffusion_model = details["diffusion_model"],
+            use_secondary_model = details["use_secondary_model"],
+            diffusion_sampling_mode = "ddim",
+            clip_models = details["clip_models"],
+            cutn_batches = details["cutn_batches"],
+            cut_overview = details["cut_overview"], 
+            cut_ic_pow = details["cut_ic_pow"],
+            cut_innercut = details["cut_innercut"],
+            cut_icgray_p = details["cut_icgray_p"],
+            range_scale = details["range_scale"],
+            sat_scale = details["sat_scale"],
+            clamp_grad = details["clamp_grad"],
+            clamp_max = details["clamp_max"],
+            eta = details["0.8"],
+            use_horizontal_symmetry = details["use_horizontal_symmetry"],
+            use_vertical_symmetry = details["use_vertical_symmetry"],
+            transformation_percent = details["transformation_percent"],
+            randomize_class = details["randomize_class"],
+            skip_augs = details["skip_augs"],
+            clip_denoised = details["clip_denoised"],
+            fuzzy_prompt = details["fuzzy_prompt"],
+            # diffusion_model_config = None,
+            # init_scale = 1000.0,
+            perlin_init = False,
+            rand_mag = 0.05,            
         )
 
         # Grab end timestamp
@@ -182,8 +209,8 @@ def loop(args):
                 }
             ).json()
             if results["success"]:
-                logger.info("Job received.")
                 details = results["details"]
+                logger.info(f"Job {details['uuid']} received.")
                 do_job(args, details)
             else:
                 logger.error(results)
