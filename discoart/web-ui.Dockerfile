@@ -84,6 +84,5 @@ ENV DISCOART_OUTPUT_DIR='/workspace/out'
 # ENV DISCOART_DISABLE_REMOTE_MODELS='1'
 
 RUN rm -Rf /root/.cache && mkdir -p /models/.cache && ln -s /models/.cache /root
-ADD workermode /workermode
 CMD [ "/start.sh" ]
 EXPOSE 8888

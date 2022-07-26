@@ -1,6 +1,7 @@
 from loguru import logger
 import time, requests, json, os
 from discoart import create
+from discoart import __version__
 from dotenv import load_dotenv
 from docarray import Document
 from docarray import DocumentArray
@@ -86,6 +87,7 @@ def do_job(args, details):
             n_batches = 1,
             batch_size = 1,
             display_rate = 20,
+            truncate_overlength_prompt = True,
             # User params
             text_prompts = text_prompts,
             seed = seed,
@@ -105,7 +107,7 @@ def do_job(args, details):
             sat_scale = details["sat_scale"],
             clamp_grad = details["clamp_grad"],
             clamp_max = details["clamp_max"],
-            eta = details["0.8"],
+            eta = details["eta"],
             use_horizontal_symmetry = details["use_horizontal_symmetry"],
             use_vertical_symmetry = details["use_vertical_symmetry"],
             transformation_percent = details["transformation_percent"],
@@ -116,7 +118,7 @@ def do_job(args, details):
             # diffusion_model_config = None,
             # init_scale = 1000.0,
             perlin_init = False,
-            rand_mag = 0.05,            
+            rand_mag = 0.05,
         )
 
         # Grab end timestamp
@@ -177,7 +179,9 @@ def deliver(args, da, details, duration):
         "duration" : duration,
         "agent_id" : args.agent,
         "agent_version" : "3.0",
-        "uuid" : details['uuid']
+        "uuid" : details['uuid'],
+        "agent_discoart_version" : __version__,
+        "agent_build_version" : os.getenv("DISCOART_VERSION")
     }
 
     # Upload payload
