@@ -235,6 +235,7 @@ def main():
     parser = argparse.ArgumentParser(description="Disco Diffusion Worker")
     parser.add_argument("--dd_api", help="Disco worker API http endpoint", required=True, default=os.getenv("DD_API"))
     parser.add_argument("--agent", help="Disco worker agent name", required=True, default=os.getenv("DD_AGENTNAME"))
+    parser.add_argument("--owner", help="Disco worker agent owner", required=False, default=398901736649261056)
     parser.add_argument("--images_out", help="Directory for render jobs", required=False, default=os.getenv("DD_IMAGES_OUT", "/workspace/out"))
     # parser.add_argument("--cuda_device", help="CUDA Device", required=False, default=os.getenv("DD_CUDA_DEVICE", "cuda:0"))
     parser.add_argument("--poll_interval", type=int, help="Polling interval between jobs", required=False, default=os.getenv("DD_POLLINTERVAL", 5))
