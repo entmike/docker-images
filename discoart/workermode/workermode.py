@@ -198,6 +198,7 @@ def loop(args):
     # Start bot loop
     run = True
     idle_time = 0
+    start_time = time.time()
     
     DD_AGENTVERSION = "3.0"
 
@@ -211,7 +212,10 @@ def loop(args):
                     "bot_version": DD_AGENTVERSION,
                     "owner": args.owner,
                     "idle_time": idle_time,
-                    "model": "custom"
+                    "model": "custom",
+                    "agent_discoart_version" : __version__,
+                    "agent_build_version" : os.getenv("DISCOART_VERSION"),
+                    "start_time" : start_time
                 }
             ).json()
             if results["success"]:
