@@ -179,6 +179,7 @@ def deliver(args, da, details, duration):
         "duration" : duration,
         "agent_id" : args.agent,
         "agent_version" : "3.0",
+        "owner" : args.owner,
         "uuid" : details['uuid'],
         "agent_discoart_version" : __version__,
         "agent_build_version" : os.getenv("DISCOART_VERSION")
@@ -208,6 +209,7 @@ def loop(args):
                 url,
                 data={
                     "bot_version": DD_AGENTVERSION,
+                    "owner": args.owner,
                     "idle_time": idle_time,
                     "model": "custom"
                 }
@@ -215,6 +217,7 @@ def loop(args):
             if results["success"]:
                 details = results["details"]
                 logger.info(f"Job {details['uuid']} received.")
+                idle_time = 0
                 do_job(args, details)
             else:
                 logger.error(results)
