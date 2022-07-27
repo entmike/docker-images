@@ -196,8 +196,6 @@ def deliver(args, da, details, duration):
         results = requests.post(url, files=files, data=values)
         feedback = results.json()
         logger.info(feedback)
-        # Clean up
-        os.unlink(f"{document_name}")
     except:
         logger.error("Error uploading LZ4.")
       
@@ -205,11 +203,11 @@ def deliver(args, da, details, duration):
         try:
             # Clean up files
             os.unlink(f"{document_name}")
-            # os.unlink(f"{gif_name}")
-            # os.unlink(f"{sprite_name}")
+
             # Clean up LZ4s
             os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.protobuf.lz4")
-            os.unlink(f"{details['uuid']}.protobuf.lz4")
+            os.unlink(f"{document_name}")
+
             # Clean up directory
             shutil.rmtree(f"DISCOART_OUTPUT_DIR/discoart-{details['uuid']}") 
         except:
