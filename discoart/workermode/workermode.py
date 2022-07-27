@@ -208,7 +208,7 @@ def deliver(args, da, details, duration):
         # Clean up
         os.unlink(f"{document_name}")
     except:
-        logger.error("Error uploading Sprite Sheet")
+        logger.error("Error uploading.  Continuing though...")
     
     if not os.getenv('WORKER_SAVEFILES'):
         try:
@@ -217,10 +217,10 @@ def deliver(args, da, details, duration):
             os.unlink(f"{gif_name}")
             os.unlink(f"{sprite_name}")
             # Clean up LZ4s
-            os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.lz4")
-            os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.lz4")
+            os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.protobuf.lz4")
+            os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.protobuf.lz4")
             # Clean up directory
-            shutil.rmtree(f"DISCOART_OUTPUT_DIR/{details['uuid']}") 
+            shutil.rmtree(f"DISCOART_OUTPUT_DIR/discoart-{details['uuid']}") 
         except:
             logger.error(f"Error when trying to clean up files for {details['uuid']}")
 
