@@ -212,7 +212,7 @@ def deliver(args, da, details, duration):
             os.unlink(f"{document_name}")
 
             # Clean up directory
-            shutil.rmtree(f"DISCOART_OUTPUT_DIR/discoart-{details['uuid']}") 
+            shutil.rmtree(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}") 
         except:
             logger.error(f"Error when trying to clean up files for {details['uuid']}")
             import traceback
