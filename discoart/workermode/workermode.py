@@ -209,7 +209,7 @@ def deliver(args, da, details, duration):
             # os.unlink(f"{sprite_name}")
             # Clean up LZ4s
             os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.protobuf.lz4")
-            os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.protobuf.lz4")
+            os.unlink(f"{details['uuid']}.protobuf.lz4")
             # Clean up directory
             shutil.rmtree(f"DISCOART_OUTPUT_DIR/discoart-{details['uuid']}") 
         except:
