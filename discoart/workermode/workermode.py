@@ -1,4 +1,5 @@
 import shutil
+import nvsmi
 from loguru import logger
 import time, requests, json, os
 from discoart import create
@@ -225,9 +226,10 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "3.0"
+    DD_AGENTVERSION = "3.1"
 
     while run:
+        gpus = list(nvsmi.get_gpus())
         url = f"{args.dd_api}/v2/takeorder/{args.agent}"
         try:
             logger.debug(f"🌎 Checking '{url}'...")
@@ -235,6 +237,7 @@ def loop(args):
                 url,
                 data={
                     "bot_version": DD_AGENTVERSION,
+                    "gpus": gpus,
                     "owner": args.owner,
                     "idle_time": idle_time,
                     "model": "custom",

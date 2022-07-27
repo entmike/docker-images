@@ -1,3 +1,4 @@
 python-dotenv
 argparse
 loguru
+nvsmi
