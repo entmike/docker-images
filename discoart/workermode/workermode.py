@@ -214,6 +214,9 @@ def deliver(args, da, details, duration):
             shutil.rmtree(f"DISCOART_OUTPUT_DIR/discoart-{details['uuid']}") 
         except:
             logger.error(f"Error when trying to clean up files for {details['uuid']}")
+            import traceback
+            tb = traceback.format_exc()
+            logger.error(tb)
 
 def loop(args):
     # Start bot loop
