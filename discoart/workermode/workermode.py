@@ -169,7 +169,13 @@ def post_process(da, details):
     da[0].chunks = []
     da[0].chunks.append(Document(uri=gif, tags = {"name" : "render_animation"}))
     da[0].chunks.append(Document(uri=sprites, tags = {"name" : "sprite_sheet"}))
+    
+    # Save trimmed-down Document
     da.save_binary(document_name)
+    
+    # Clean up
+    os.unlink(gif)
+    os.unlink(sprites)
 
 def deliver(args, da, details, duration):
     url = f"{args.dd_api}/v2/deliverorder"
