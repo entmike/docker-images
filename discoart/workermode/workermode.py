@@ -135,7 +135,7 @@ def do_job(args, details):
             tb = traceback.format_exc()
             logger.error(f"Bad job detected.\n\n{e}\n\n{tb}")
             values = {"message": f"Job failed:\n\n{e}", "traceback": tb}
-            r = requests.post(f"{args.dd_api}/reject/{args.agent}/{details['uuid']}", data=values)
+            requests.post(f"{args.dd_api}/reject/{args.agent}/{details['uuid']}", data=values)
         else:
             logger.error(f"Error.  Check your API host is running at that location.  Also check your own internet connectivity.  Exception:\n{tb}")
             raise(tb)
@@ -191,8 +191,39 @@ def deliver(args, da, details, duration):
         results = requests.post(url, files=files, data=values)
         feedback = results.json()
         logger.info(feedback)
+        # Clean up
+        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{document_name}")
+        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}")
     except:
-        logger.error("Shit.")
+        logger.error("Error uploading LZ4.")
+        
+    # Upload GIF
+    url = f"{args.dd_api}/v2/delivergif"
+    document_name = f"{details['uuid']}.gif"
+    try:
+        logger.info(f"🌍 Uploading {document_name} to {url}...")
+        results = requests.post(url, files=files, data=values)
+        feedback = results.json()
+        logger.info(feedback)
+        # Clean up
+        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{document_name}")
+        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}")
+    except:
+        logger.error("Error uploading GIF.")
+        
+    # Upload Sprite sheet
+    url = f"{args.dd_api}/v2/deliversprites"
+    document_name = f"{details['uuid']}_sprites.png"
+    try:
+        logger.info(f"🌍 Uploading {document_name} to {url}...")
+        results = requests.post(url, files=files, data=values)
+        feedback = results.json()
+        logger.info(feedback)
+        # Clean up
+        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{document_name}")
+        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}")
+    except:
+        logger.error("Error uploading Sprite Sheet")
 
 def loop(args):
     # Start bot loop
