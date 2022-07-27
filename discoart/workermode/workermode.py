@@ -231,14 +231,14 @@ def loop(args):
     while run:
         gpu = list(nvsmi.get_gpus())[0]
         
-        gpu_record = {
+        gpu_record = json.dumps({
             "id" : gpu.id,
-            "UUID" : gpu.uuid,
+            "uuid" : gpu.uuid,
             "gpu_util": gpu.gpu_util,
             "mem_util": gpu.mem_util,
             "mem_free": gpu.mem_free,
             "mem_total": gpu.mem_total
-        }
+        })
         
         url = f"{args.dd_api}/v2/takeorder/{args.agent}"
         try:
@@ -256,16 +256,19 @@ def loop(args):
                     "start_time" : start_time
                 }
             ).json()
+            
+            if "command" in results:
+                if results["command"] == 'terminate':
+                    logger.info("🛑 Received terminate instruction.  Cya.")
+                    run = False    
+                    
             if results["success"]:
                 if "details" in results:
                     details = results["details"]
                     logger.info(f"Job {details['uuid']} received.")
                     idle_time = 0
                     do_job(args, details)
-                if "command" in results:
-                    if results["command"] == 'terminate':
-                        logger.info("🛑 Received terminate instruction.  Cya.")
-                        run = False
+        
             else:
                 logger.error(results)
         except Exception as e:
