@@ -172,8 +172,12 @@ def post_process(da, details):
 def deliver(args, da, details, duration):
     url = f"{args.dd_api}/v2/deliverorder"
     document_name = f"{details['uuid']}.protobuf.lz4"
+    gif_name = f"{details['uuid']}.gif"
+    sprite_name = f"{details['uuid']}_sprites.png"
     files = {
-        "file": open(document_name, "rb")
+        "file": open(document_name, "rb"),
+        "gif" : open(gif_name, "rb"),
+        "sprite" : open(sprite_name, "rb"),
     }
     values = {
         "duration" : duration,
@@ -184,7 +188,6 @@ def deliver(args, da, details, duration):
         "agent_discoart_version" : __version__,
         "agent_build_version" : os.getenv("DISCOART_VERSION")
     }
-
     # Upload payload
     try:
         logger.info(f"🌍 Uploading {document_name} to {url}...")
@@ -195,23 +198,7 @@ def deliver(args, da, details, duration):
         os.unlink(f"{document_name}")
     except:
         logger.error("Error uploading LZ4.")
-        
-    # Upload GIF
-    url = f"{args.dd_api}/v2/delivergif"
-    document_name = f"{details['uuid']}.gif"
-    try:
-        logger.info(f"🌍 Uploading {document_name} to {url}...")
-        results = requests.post(url, files=files, data=values)
-        feedback = results.json()
-        logger.info(feedback)
-        # Clean up
-        os.unlink(f"{document_name}")
-    except:
-        logger.error("Error uploading GIF.")
-        
-    # Upload Sprite sheet
-    url = f"{args.dd_api}/v2/deliversprites"
-    document_name = f"{details['uuid']}_sprites.png"
+    
     try:
         logger.info(f"🌍 Uploading {document_name} to {url}...")
         results = requests.post(url, files=files, data=values)
@@ -221,10 +208,17 @@ def deliver(args, da, details, duration):
         os.unlink(f"{document_name}")
     except:
         logger.error("Error uploading Sprite Sheet")
-        
-    # Clean up LZ4s
-    os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.lz4")
-    os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.lz4")
+    
+    try:
+        # Clean up files
+        os.unlink(f"{document_name}")
+        os.unlink(f"{gif_name}")
+        os.unlink(f"{sprite_name}")
+        # Clean up LZ4s
+        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.lz4")
+        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.lz4")
+    except:
+        logger.error(f"Error when trying to clean up files for {details['uuid']}")
 
 def loop(args):
     # Start bot loop
