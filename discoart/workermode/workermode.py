@@ -230,6 +230,7 @@ def loop(args):
 
     while run:
         gpu = list(nvsmi.get_gpus())[0]
+        
         gpu_record = {
             "id" : gpu.id,
             "UUID" : gpu.uuid,
@@ -238,6 +239,7 @@ def loop(args):
             "mem_free": gpu.mem_free,
             "mem_total": gpu.mem_total
         }
+        
         url = f"{args.dd_api}/v2/takeorder/{args.agent}"
         try:
             logger.debug(f"🌎 Checking '{url}'...")
