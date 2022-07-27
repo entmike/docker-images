@@ -89,6 +89,7 @@ def do_job(args, details):
             batch_size = 1,
             display_rate = 20,
             truncate_overlength_prompt = True,
+            gif_fps = 0,
             # User params
             text_prompts = text_prompts,
             seed = seed,
@@ -173,12 +174,12 @@ def post_process(da, details):
 def deliver(args, da, details, duration):
     url = f"{args.dd_api}/v2/deliverorder"
     document_name = f"{details['uuid']}.protobuf.lz4"
-    gif_name = f"{details['uuid']}.gif"
-    sprite_name = f"{details['uuid']}_sprites.png"
+    # gif_name = f"{details['uuid']}.gif"
+    # sprite_name = f"{details['uuid']}_sprites.png"
     files = {
         "file": open(document_name, "rb"),
-        "gif" : open(gif_name, "rb"),
-        "sprite" : open(sprite_name, "rb"),
+        # "gif" : open(gif_name, "rb"),
+        # "sprite" : open(sprite_name, "rb"),
     }
     values = {
         "duration" : duration,
@@ -199,23 +200,13 @@ def deliver(args, da, details, duration):
         os.unlink(f"{document_name}")
     except:
         logger.error("Error uploading LZ4.")
-    
-    try:
-        logger.info(f"🌍 Uploading {document_name} to {url}...")
-        results = requests.post(url, files=files, data=values)
-        feedback = results.json()
-        logger.info(feedback)
-        # Clean up
-        os.unlink(f"{document_name}")
-    except:
-        logger.error("Error uploading.  Continuing though...")
-    
+      
     if not os.getenv('WORKER_SAVEFILES'):
         try:
             # Clean up files
             os.unlink(f"{document_name}")
-            os.unlink(f"{gif_name}")
-            os.unlink(f"{sprite_name}")
+            # os.unlink(f"{gif_name}")
+            # os.unlink(f"{sprite_name}")
             # Clean up LZ4s
             os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.protobuf.lz4")
             os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.protobuf.lz4")
