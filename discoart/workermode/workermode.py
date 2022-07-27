@@ -238,7 +238,6 @@ def loop(args):
             "mem_free": gpu.mem_free,
             "mem_total": gpu.mem_total
         }
-        g
         url = f"{args.dd_api}/v2/takeorder/{args.agent}"
         try:
             logger.debug(f"🌎 Checking '{url}'...")
