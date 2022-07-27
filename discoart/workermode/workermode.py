@@ -247,10 +247,15 @@ def loop(args):
                 }
             ).json()
             if results["success"]:
-                details = results["details"]
-                logger.info(f"Job {details['uuid']} received.")
-                idle_time = 0
-                do_job(args, details)
+                if "details" in results:
+                    details = results["details"]
+                    logger.info(f"Job {details['uuid']} received.")
+                    idle_time = 0
+                    do_job(args, details)
+                if "command" in results:
+                    if results["command"] == 'terminate':
+                        logger.info("🛑 Received terminate instruction.  Cya.")
+                        run = False
             else:
                 logger.error(results)
         except Exception as e:
@@ -259,9 +264,12 @@ def loop(args):
             logger.error(tb)
             pass
         
-        logger.info(f"Sleeping for {args.poll_interval} seconds...  I've been sleeping for {idle_time} seconds.")
-        time.sleep(args.poll_interval)
-        idle_time = idle_time + args.poll_interval
+        if run:
+            logger.info(f"Sleeping for {args.poll_interval} seconds...  I've been sleeping for {idle_time} seconds.")
+            time.sleep(args.poll_interval)
+            idle_time = idle_time + args.poll_interval
+        else:
+            logger.info("Terminating loop.")
 
 def main():
     # Environment-specific settings:
