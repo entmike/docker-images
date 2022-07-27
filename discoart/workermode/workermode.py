@@ -201,9 +201,6 @@ def deliver(args, da, details, duration):
       
     if not os.getenv('WORKER_SAVEFILES'):
         try:
-            # Clean up files
-            os.unlink(f"{document_name}")
-
             # Clean up LZ4s
             os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.protobuf.lz4")
             os.unlink(f"{document_name}")
