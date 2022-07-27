@@ -89,7 +89,7 @@ def do_job(args, details):
             batch_size = 1,
             display_rate = 20,
             truncate_overlength_prompt = True,
-            gif_fps = 0,
+            gif_fps = 20,
             # User params
             text_prompts = text_prompts,
             seed = seed,
