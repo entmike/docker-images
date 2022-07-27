@@ -192,8 +192,7 @@ def deliver(args, da, details, duration):
         feedback = results.json()
         logger.info(feedback)
         # Clean up
-        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{document_name}")
-        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}")
+        os.unlink(f"{document_name}")
     except:
         logger.error("Error uploading LZ4.")
         
@@ -206,8 +205,7 @@ def deliver(args, da, details, duration):
         feedback = results.json()
         logger.info(feedback)
         # Clean up
-        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{document_name}")
-        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}")
+        os.unlink(f"{document_name}")
     except:
         logger.error("Error uploading GIF.")
         
@@ -220,10 +218,13 @@ def deliver(args, da, details, duration):
         feedback = results.json()
         logger.info(feedback)
         # Clean up
-        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{document_name}")
-        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}")
+        os.unlink(f"{document_name}")
     except:
         logger.error("Error uploading Sprite Sheet")
+        
+    # Clean up LZ4s
+    os.unlink(f"discoart-{details['uuid']}.lz4")
+    os.unlink(f"{details['uuid']}.lz4")
 
 def loop(args):
     # Start bot loop
