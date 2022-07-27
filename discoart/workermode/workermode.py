@@ -1,3 +1,4 @@
+import shutil
 from loguru import logger
 import time, requests, json, os
 from discoart import create
@@ -209,16 +210,19 @@ def deliver(args, da, details, duration):
     except:
         logger.error("Error uploading Sprite Sheet")
     
-    try:
-        # Clean up files
-        os.unlink(f"{document_name}")
-        os.unlink(f"{gif_name}")
-        os.unlink(f"{sprite_name}")
-        # Clean up LZ4s
-        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.lz4")
-        os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.lz4")
-    except:
-        logger.error(f"Error when trying to clean up files for {details['uuid']}")
+    if not os.getenv('WORKER_SAVEFILES'):
+        try:
+            # Clean up files
+            os.unlink(f"{document_name}")
+            os.unlink(f"{gif_name}")
+            os.unlink(f"{sprite_name}")
+            # Clean up LZ4s
+            os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.lz4")
+            os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.lz4")
+            # Clean up directory
+            shutil.rmtree(f"DISCOART_OUTPUT_DIR/{details['uuid']}") 
+        except:
+            logger.error(f"Error when trying to clean up files for {details['uuid']}")
 
 def loop(args):
     # Start bot loop
