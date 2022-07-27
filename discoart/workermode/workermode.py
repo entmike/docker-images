@@ -223,8 +223,8 @@ def deliver(args, da, details, duration):
         logger.error("Error uploading Sprite Sheet")
         
     # Clean up LZ4s
-    os.unlink(f"discoart-{details['uuid']}.lz4")
-    os.unlink(f"{details['uuid']}.lz4")
+    os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.lz4")
+    os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/{details['uuid']}.lz4")
 
 def loop(args):
     # Start bot loop
