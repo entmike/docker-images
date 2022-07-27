@@ -229,7 +229,16 @@ def loop(args):
     DD_AGENTVERSION = "3.1"
 
     while run:
-        gpus = list(nvsmi.get_gpus())
+        gpu = list(nvsmi.get_gpus())[0]
+        gpu_record = {
+            "id" : gpu.id,
+            "UUID" : gpu.uuid,
+            "gpu_util": gpu.gpu_util,
+            "mem_util": gpu.mem_util,
+            "mem_free": gpu.mem_free,
+            "mem_total": gpu.mem_total
+        }
+        g
         url = f"{args.dd_api}/v2/takeorder/{args.agent}"
         try:
             logger.debug(f"🌎 Checking '{url}'...")
@@ -237,7 +246,7 @@ def loop(args):
                 url,
                 data={
                     "bot_version": DD_AGENTVERSION,
-                    "gpus": gpus,
+                    "gpus": gpu_record,
                     "owner": args.owner,
                     "idle_time": idle_time,
                     "model": "custom",
