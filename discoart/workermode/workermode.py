@@ -226,19 +226,15 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "3.1"
+    DD_AGENTVERSION = "3.2"
 
     while run:
         gpu = list(nvsmi.get_gpus())[0]
-        
-        gpu_record = json.dumps({
-            "id" : gpu.id,
-            "uuid" : gpu.uuid,
-            "gpu_util": gpu.gpu_util,
-            "mem_util": gpu.mem_util,
-            "mem_free": gpu.mem_free,
-            "mem_total": gpu.mem_total
-        })
+        gpu_record = {}
+        for key in list(gpu.__dict__.keys()):
+            gpu_record[key]=gpu.__dict__[key]
+            
+        gpu_record = json.dumps(gpu_record)
         
         url = f"{args.dd_api}/v2/takeorder/{args.agent}"
         try:
