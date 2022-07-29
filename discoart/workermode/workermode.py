@@ -226,7 +226,7 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "3.2"
+    DD_AGENTVERSION = "3.2.alpha"
 
     while run:
         gpu = list(nvsmi.get_gpus())[0]
