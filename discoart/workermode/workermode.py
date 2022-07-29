@@ -69,7 +69,6 @@ def do_job(args, details):
     docname = f"discoart-{details['uuid']}"
     text_prompts = parse_text_prompts(details)
     width_height = parse_width_height(details)
-    diffusion_model = details["diffusion_model"]
     seed = parse_seed(details)
 
     import os, time
@@ -88,14 +87,14 @@ def do_job(args, details):
             name_docarray = docname,
             n_batches = 1,
             batch_size = 1,
-            display_rate = 20,
+            save_rate = 50,
             truncate_overlength_prompt = True,
-            gif_fps = 20,
+            gif_fps = 0,
+            skip_steps = 0,
+            seed = seed,
             # User params
             text_prompts = text_prompts,
-            seed = seed,
             steps=details['steps'],
-            skip_steps = 0,
             width_height = width_height,
             diffusion_model = details["diffusion_model"],
             use_secondary_model = details["use_secondary_model"],
@@ -117,7 +116,7 @@ def do_job(args, details):
             randomize_class = details["randomize_class"],
             skip_augs = details["skip_augs"],
             clip_denoised = details["clip_denoised"],
-            fuzzy_prompt = details["fuzzy_prompt"],
+            # fuzzy_prompt = details["fuzzy_prompt"],
             # diffusion_model_config = None,
             # init_scale = 1000.0,
             perlin_init = False,
@@ -226,7 +225,7 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "3.2.alpha"
+    DD_AGENTVERSION = "3.3.alpha"
 
     while run:
         gpu = list(nvsmi.get_gpus())[0]
