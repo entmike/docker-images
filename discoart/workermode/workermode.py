@@ -225,8 +225,7 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "3.3.alpha"
-
+    DD_AGENTVERSION = "3.4.alpha"
     while run:
         gpu = list(nvsmi.get_gpus())[0]
         gpu_record = {}
@@ -292,6 +291,11 @@ def main():
     parser.add_argument("--poll_interval", type=int, help="Polling interval between jobs", required=False, default=os.getenv("DD_POLLINTERVAL", 5))
     parser.add_argument("--dream_time", type=int, help="Time in seconds until dreams", required=False, default=os.getenv("DD_POLLINTERVAL", 300))
     args = parser.parse_args()
+    
+    # Download models first
+    from discoart.helper import models_list, get_remote_model_list
+    get_remote_model_list(model_list, force_print=False)
+    
     loop(args)
 
 
