@@ -294,7 +294,7 @@ def main():
     
     # Download models first
     from discoart.helper import models_list, get_remote_model_list
-    get_remote_model_list(model_list, force_print=False)
+    get_remote_model_list(models_list, force_print=True)
     
     loop(args)
 
