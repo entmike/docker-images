@@ -208,7 +208,8 @@ def deliver(args, da, details, duration):
     if not os.getenv('WORKER_SAVEFILES'):
         try:
             # Clean up LZ4s
-            os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.protobuf.lz4")
+            # Naming convention apparently has changed to [name_docarray]/da.protobuf.lz4, next line no longer needed since it's inside same directory as progress files now
+            # os.unlink(f"{os.getenv('DISCOART_OUTPUT_DIR')}/discoart-{details['uuid']}.protobuf.lz4")
             os.unlink(f"{document_name}")
 
             # Clean up directory
@@ -225,7 +226,7 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "3.4.alpha"
+    DD_AGENTVERSION = "3.5.alpha"
     while run:
         gpu = list(nvsmi.get_gpus())[0]
         gpu_record = {}
