@@ -2,3 +2,4 @@ python-dotenv
 argparse
 loguru
 nvsmi
+discoart==0.10.9
