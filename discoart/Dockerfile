@@ -30,8 +30,7 @@ RUN pip install \
 
 RUN jupyter nbextension enable --py widgetsnbextension
 
-ENV DISCOART_VERSION=v0.7.20
-RUN pip install discoart
+ENV DISCOART_VERSION=v0.10.9
 
 ADD start.sh /start.sh
 ADD welcome-banner.txt /root/welcome-banner.txt
