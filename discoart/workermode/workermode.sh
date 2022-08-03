@@ -16,7 +16,6 @@ fi
 # Update and start worker
 cd /workermode
 pip install -r requirements.txt
-pip install discoart --upgrade
 curl -O https://raw.githubusercontent.com/entmike/docker-images/main/discoart/workermode/workermode.py
 
 # Use FD model list
