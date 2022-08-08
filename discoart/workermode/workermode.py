@@ -190,7 +190,7 @@ def deliver(args, da, details, duration):
     values = {
         "duration" : duration,
         "agent_id" : args.agent,
-        "agent_version" : "3.0",
+        "agent_version" : "0.11.7",
         "owner" : args.owner,
         "uuid" : details['uuid'],
         "agent_discoart_version" : __version__,
@@ -226,7 +226,7 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "3.6.alpha"
+    DD_AGENTVERSION = "0.11.7"
     while run:
         gpu = list(nvsmi.get_gpus())[0]
         gpu_record = {}

@@ -2,4 +2,4 @@ python-dotenv
 argparse
 loguru
 nvsmi
-discoart==0.10.9
+discoart==0.11.7
