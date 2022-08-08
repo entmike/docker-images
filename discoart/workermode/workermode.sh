@@ -15,8 +15,9 @@ fi
 
 # Update and start worker
 cd /workermode
-pip install -r requirements.txt
 curl -O https://raw.githubusercontent.com/entmike/docker-images/main/discoart/workermode/workermode.py
+curl -O https://raw.githubusercontent.com/entmike/docker-images/main/discoart/workermode/requirements.txt
+pip install -r requirements.txt
 
 # Use FD model list
 # export DISCOART_MODELS_YAML='/models.yaml' # Nope.
