@@ -227,7 +227,7 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "0.11.7.titan"
+    DD_AGENTVERSION = "0.11.7.titan2"
     while run:
         gpu = list(nvsmi.get_gpus())[0]
         gpu_record = {}
@@ -236,9 +236,9 @@ def loop(args):
         
         vram = gpu_record["mem_total"]
         if vram > 50000:
-            text_clip_on_cpu = False
-        else:
             text_clip_on_cpu = True
+        else:
+            text_clip_on_cpu = False
 
         gpu_record = json.dumps(gpu_record)
         
