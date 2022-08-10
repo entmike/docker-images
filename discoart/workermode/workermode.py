@@ -97,6 +97,7 @@ def do_job(args, details):
             steps=details['steps'],
             width_height = width_height,
             diffusion_model = details["diffusion_model"],
+            text_clip_on_cpu = details["text_clip_on_cpu"],
             use_secondary_model = details["use_secondary_model"],
             diffusion_sampling_mode = "ddim",
             clip_models = details["clip_models"],
@@ -226,13 +227,19 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "0.11.7"
+    DD_AGENTVERSION = "0.11.7.titan"
     while run:
         gpu = list(nvsmi.get_gpus())[0]
         gpu_record = {}
         for key in list(gpu.__dict__.keys()):
             gpu_record[key]=gpu.__dict__[key]
-            
+        
+        vram = gpu_record["mem_total"]
+        if vram > 50000:
+            text_clip_on_cpu = False
+        else:
+            text_clip_on_cpu = True
+
         gpu_record = json.dumps(gpu_record)
         
         url = f"{args.dd_api}/v2/takeorder/{args.agent}"
@@ -260,6 +267,7 @@ def loop(args):
             if results["success"]:
                 if "details" in results:
                     details = results["details"]
+                    details["text_clip_on_cpu"] = text_clip_on_cpu
                     logger.info(f"Job {details['uuid']} received.")
                     idle_time = 0
                     do_job(args, details)
