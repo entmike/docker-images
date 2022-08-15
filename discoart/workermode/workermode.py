@@ -229,7 +229,7 @@ def loop(args):
     idle_time = 0
     boot_time = datetime.utcnow()
     
-    DD_AGENTVERSION = "0.11.10"
+    DD_AGENTVERSION = "0.11.10.a"
     while run:
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
