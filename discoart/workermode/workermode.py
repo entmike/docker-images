@@ -1,5 +1,4 @@
 import shutil
-import psutil
 import nvsmi
 import subprocess
 from loguru import logger
@@ -236,6 +235,7 @@ def loop(args):
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
         total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
+        import psutil
         m = psutil.virtual_memory().__dict__
         # free_space = subprocess.run("df --output=avail -m / | tail -1 | tr -d '']",shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
