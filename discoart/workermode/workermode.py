@@ -80,7 +80,7 @@ def do_job(args, details):
     os.environ["DISCOART_DISABLE_IPYTHON"] = '1'
 
     # Grab start timestamp
-    start_time = datetime.utcnow()
+    start_time = time.time()
 
     # Run Disco
     try:
@@ -227,10 +227,11 @@ def loop(args):
     # Start bot loop
     run = True
     idle_time = 0
-    start_time = time.time()
+    boot_time = datetime.utcnow()
     
-    DD_AGENTVERSION = "0.11.8"
+    DD_AGENTVERSION = "0.11.9"
     while run:
+        start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
         free_space = subprocess.run(["df", "--output=avail", "-m", os.getenv('DISCOART_OUTPUT_DIR'), "|", "tail", "-1", "|", "tr", "-d", "' '"], stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
@@ -259,7 +260,8 @@ def loop(args):
                     "agent_discoart_version" : __version__,
                     "agent_build_version" : os.getenv("DISCOART_VERSION"),
                     "start_time" : start_time,
-                    "free_space" : free_space
+                    "free_space" : free_space,
+                    "boot_time" : boot_time
                 }
             ).json()
             
