@@ -235,7 +235,7 @@ def loop(args):
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
         total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
-        # import psutil
+        import psutil
         try:
             m = psutil.virtual_memory()._asdict()
         except:
