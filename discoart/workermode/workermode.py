@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from docarray import Document
 from docarray import DocumentArray
 import traceback
+from datetime import datetime, timedelta
 
 # Function definitions
 def parse_seed(details):
@@ -79,7 +80,7 @@ def do_job(args, details):
     os.environ["DISCOART_DISABLE_IPYTHON"] = '1'
 
     # Grab start timestamp
-    start_time = time.time()
+    start_time = datetime.utcnow()
 
     # Run Disco
     try:
