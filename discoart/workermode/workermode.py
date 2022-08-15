@@ -1,5 +1,6 @@
 import shutil
 import nvsmi
+import subprocess
 from loguru import logger
 import time, requests, json, os
 from discoart import create
@@ -227,9 +228,10 @@ def loop(args):
     idle_time = 0
     start_time = time.time()
     
-    DD_AGENTVERSION = "0.11.7.titan2"
+    DD_AGENTVERSION = "0.11.8"
     while run:
         gpu = list(nvsmi.get_gpus())[0]
+        free_space = subprocess.run(["df", "--output=avail", "-m", os.getenv('DISCOART_OUTPUT_DIR'), "|", "tail", "-1", "|", "tr", "-d", "' '"], stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
         for key in list(gpu.__dict__.keys()):
             gpu_record[key]=gpu.__dict__[key]
@@ -255,7 +257,8 @@ def loop(args):
                     "model": "custom",
                     "agent_discoart_version" : __version__,
                     "agent_build_version" : os.getenv("DISCOART_VERSION"),
-                    "start_time" : start_time
+                    "start_time" : start_time,
+                    "free_space" : free_space
                 }
             ).json()
             
