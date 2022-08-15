@@ -229,11 +229,12 @@ def loop(args):
     idle_time = 0
     boot_time = datetime.utcnow()
     
-    DD_AGENTVERSION = "0.11.9"
+    DD_AGENTVERSION = "0.11.10"
     while run:
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
-        free_space = subprocess.run("df --output=avail -m / | tail -1 | tr -d '']",shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
+        total, used, free_space = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
+        # free_space = subprocess.run("df --output=avail -m / | tail -1 | tr -d '']",shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
         for key in list(gpu.__dict__.keys()):
             gpu_record[key]=gpu.__dict__[key]
