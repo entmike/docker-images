@@ -233,7 +233,7 @@ def loop(args):
     while run:
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
-        free_space = subprocess.run(["df", "--output=avail", "-m", os.getenv('DISCOART_OUTPUT_DIR'), "|", "tail", "-1", "|", "tr", "-d", "' '"], stdout=subprocess.PIPE).stdout.decode("utf-8")
+        free_space = subprocess.run(["df", "--output=avail", "-m", "/", "|", "tail", "-1", "|", "tr", "-d", "' '"], stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
         for key in list(gpu.__dict__.keys()):
             gpu_record[key]=gpu.__dict__[key]
