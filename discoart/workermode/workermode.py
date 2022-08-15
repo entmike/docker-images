@@ -236,7 +236,10 @@ def loop(args):
         gpu = list(nvsmi.get_gpus())[0]
         total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
         # import psutil
-        m = psutil.virtual_memory()._asdict()
+        try:
+            m = psutil.virtual_memory()._asdict()
+        except:
+            m = {}
         # m = {}
         # free_space = subprocess.run("df --output=avail -m / | tail -1 | tr -d '']",shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
