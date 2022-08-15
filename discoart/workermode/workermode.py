@@ -1,4 +1,4 @@
-import shutil
+import shutil, psutil
 import nvsmi
 import subprocess
 from loguru import logger
@@ -134,6 +134,7 @@ def do_job(args, details):
 
         post_process(da, details)
         deliver(args, da, details, duration)
+        del(da) # Free up memory hopefully
     except Exception as e:
         connected = True #TODO: what?
         if connected:
@@ -233,8 +234,9 @@ def loop(args):
     while run:
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
-        # total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
         total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
+        m = psutil.virtual_memory().__dict__
+        import psutil
         # free_space = subprocess.run("df --output=avail -m / | tail -1 | tr -d '']",shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
         for key in list(gpu.__dict__.keys()):
@@ -265,7 +267,8 @@ def loop(args):
                     "free_space" : free,
                     "total_space" : total,
                     "used_space" : used,
-                    "boot_time" : boot_time
+                    "boot_time" : boot_time,
+                    "memory" : m
                 }
             ).json()
             
