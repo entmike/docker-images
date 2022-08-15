@@ -234,7 +234,7 @@ def loop(args):
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
         # total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
-        total, used, free = shutil.disk_usage("/")
+        total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
         # free_space = subprocess.run("df --output=avail -m / | tail -1 | tr -d '']",shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
         for key in list(gpu.__dict__.keys()):
