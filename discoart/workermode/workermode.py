@@ -1,4 +1,5 @@
-import shutil, psutil
+import shutil
+import psutil
 import nvsmi
 import subprocess
 from loguru import logger
