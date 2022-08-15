@@ -233,7 +233,7 @@ def loop(args):
     while run:
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
-        total, used, free_space = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
+        total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
         # free_space = subprocess.run("df --output=avail -m / | tail -1 | tr -d '']",shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
         for key in list(gpu.__dict__.keys()):
@@ -261,7 +261,9 @@ def loop(args):
                     "agent_discoart_version" : __version__,
                     "agent_build_version" : os.getenv("DISCOART_VERSION"),
                     "start_time" : start_time,
-                    "free_space" : free_space,
+                    "free_space" : int(free),
+                    "total_space" : int(total),
+                    "used_space" : int(used),
                     "boot_time" : boot_time
                 }
             ).json()
