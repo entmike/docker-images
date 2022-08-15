@@ -262,9 +262,9 @@ def loop(args):
                     "agent_discoart_version" : __version__,
                     "agent_build_version" : os.getenv("DISCOART_VERSION"),
                     "start_time" : start_time,
-                    "free_space" : int(free),
-                    "total_space" : int(total),
-                    "used_space" : int(used),
+                    "free_space" : free,
+                    "total_space" : total,
+                    "used_space" : used,
                     "boot_time" : boot_time
                 }
             ).json()
