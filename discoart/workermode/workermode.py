@@ -230,16 +230,23 @@ def loop(args):
     idle_time = 0
     boot_time = datetime.utcnow()
     
-    DD_AGENTVERSION = "0.11.10.a"
+    DD_AGENTVERSION = "0.11.10.b"
     while run:
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
         total, used, free = shutil.disk_usage(os.getenv('DISCOART_OUTPUT_DIR'))
         import psutil
         try:
-            m = psutil.virtual_memory()._asdict()
+            meminfo = psutil.virtual_memory()
+            memdict = {}
+            memdict['total'] = meminfo.total/1024
+            memdict['used'] = meminfo.used/1024
+            memdict['free'] = meminfo.free/1024
+            memdict['buffers'] = meminfo.buffers/1024
+            memdict['cached'] = meminfo.cached/1024
+            memdict['percent'] = meminfo.percent
         except:
-            m = {}
+            memdict = {}
         # m = {}
         # free_space = subprocess.run("df --output=avail -m / | tail -1 | tr -d '']",shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
         gpu_record = {}
@@ -272,7 +279,7 @@ def loop(args):
                     "total_space" : total,
                     "used_space" : used,
                     "boot_time" : boot_time,
-                    "memory" : m
+                    "memory" : memdict
                 }
             ).json()
             
