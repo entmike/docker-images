@@ -230,7 +230,7 @@ def loop(args):
     idle_time = 0
     boot_time = datetime.utcnow()
     
-    DD_AGENTVERSION = "0.11.10.b"
+    DD_AGENTVERSION = "0.11.10.c"
     while run:
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
@@ -260,6 +260,7 @@ def loop(args):
             text_clip_on_cpu = False
 
         gpu_record = json.dumps(gpu_record)
+        memdict = json.dumps(memdict)
         
         url = f"{args.dd_api}/v2/takeorder/{args.agent}"
         try:
