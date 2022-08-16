@@ -109,6 +109,8 @@ def do_job(args, details):
             cut_innercut = details["cut_innercut"],
             cut_icgray_p = details["cut_icgray_p"],
             range_scale = details["range_scale"],
+            clip_guidance_scale = details["clip_guidance_scale"],
+            tv_scale = details["tv_scale"],
             sat_scale = details["sat_scale"],
             clamp_grad = details["clamp_grad"],
             clamp_max = details["clamp_max"],
