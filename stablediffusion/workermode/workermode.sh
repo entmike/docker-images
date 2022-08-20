@@ -1,6 +1,8 @@
 #!/bin/bash
 echo "Worker Started"
-
+echo $1
+echo $2
+echo $3
 if [[ $PUBLIC_KEY ]]
 then
     mkdir -p ~/.ssh
@@ -14,7 +16,9 @@ then
 fi
 
 # Update and start worker
-cd /workspace
+cd /workermode
+pip install -r requirements.txt
+cd /workspace/k-diffusion
 curl -O https://raw.githubusercontent.com/entmike/docker-images/main/stablediffusion/workermode/workermode.py
 
-python workermode.py --dd_api $1 --agent $2 --owner ${3:-398901736649261056} --ckpt ${4:/weights/sd-v1-3-full-ema.ckpt} --config ${5:/workspace/k-diffusion/v1-inference.yaml}
+python workermode.py --api $1 --agent $2 --owner ${3:-398901736649261056} --ckpt "/weights/sd-v1-3-full-ema.ckpt" --config "/workspace/k-diffusion/v1-inference.yaml"

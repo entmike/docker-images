@@ -43,6 +43,7 @@ RUN pip install omegaconf pytorch_lightning transformers
 RUN mkdir -p /root/.cache/huggingface && mkdir -p /workspace/out
 ADD huggingface /root/.cache/huggingface
 ADD stable-diffusion.ipynb /workspace/stable-diffusion.ipynb
+ADD workermode /workermode
 ADD start.sh /start.sh
 CMD [ "/start.sh" ]
 EXPOSE 8888
