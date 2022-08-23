@@ -1,1 +1,3 @@
 huggingface/*
+stable-diffusion-models/*
+!stable-diffusion-models/README.md
