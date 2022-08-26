@@ -28,7 +28,7 @@ from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 
-AGENTVERSION = "_stable.0"
+AGENTVERSION = "sd-1-4-v1"
 
 def chunk(it, size):
     it = iter(it)
@@ -150,7 +150,7 @@ def do_run(accelerator, device, model, config, opt):
     
 def do_job(args, details, accelerator, device, model, config):
     import os, time
-
+    params = details["params"]
     # Grab start timestamp
     start_time = time.time()
 
@@ -158,24 +158,27 @@ def do_job(args, details, accelerator, device, model, config):
     try:
         opt = {
             "uuid" : details["uuid"],
+            
+            # User params
+            "ddim_steps" : params["steps"],
+            "ddim_eta" : params["eta"],
+            "W" : params["width_height"][0],
+            "H" : params["width_height"][1],
+            "seed": params["seed"],
+            "prompt" : params["prompt"],
+            "scale" : params["scale"],            
+            
             "outdir" : args.out,
             "skip_grid" : True,
             "skip_save" : False,
-            "ddim_steps" : details["steps"],
             "plms" : False,
-            "ddim_eta" : details["eta"],
             "n_iter" : 1,
-            "W" : details["width_height"][0],
-            "H" : details["width_height"][1],
             "C" : 4,
             "f" : 8,
             "n_samples" : 1,
             "n_rows" : 2,
-            "scale" : details["scale"],
             "dyn" : None,
             "from_file": None,
-            "seed": details["seed"],
-            "prompt" : details["prompt"]
         }
         results = do_run(accelerator, device, model, config, opt)
 
@@ -191,7 +194,7 @@ def do_job(args, details, accelerator, device, model, config):
             tb = traceback.format_exc()
             logger.error(f"Bad job detected.\n\n{e}\n\n{tb}")
             values = {"message": f"Job failed:\n\n{e}", "traceback": tb}
-            requests.post(f"{args.api}/stable/reject/{args.agent}/{details['uuid']}", data=values)
+            requests.post(f"{args.api}/v3/reject/{args.agent}/{details['uuid']}", data=values)
         else:
             logger.error(f"Error.  Check your API host is running at that location.  Also check your own internet connectivity.  Exception:\n{tb}")
             raise(tb)
@@ -199,7 +202,7 @@ def do_job(args, details, accelerator, device, model, config):
 def deliver(args, details, duration):
     sample_path = os.path.join(args.out, details["uuid"])
     image = f"{sample_path}/00000.png"
-    url = f"{args.api}/stable/deliverorder"
+    url = f"{args.api}/v3/deliverorder"
     logger.info(url)
     
     files = {
@@ -208,6 +211,7 @@ def deliver(args, details, duration):
     values = {
         "duration" : duration,
         "agent_id" : args.agent,
+        "algo" : "stable",
         "agent_version" : AGENTVERSION,
         "owner" : args.owner,
         "uuid" : details['uuid']
@@ -275,13 +279,14 @@ def loop(args, accelerator, device, config, model):
         gpu_record = json.dumps(gpu_record)
         memdict = json.dumps(memdict)
         
-        url = f"{args.api}/stable/takeorder/{args.agent}"
+        url = f"{args.api}/v3/takeorder/{args.agent}"
         try:
             logger.debug(f"🌎 Checking '{url}'...")
             results = requests.post(
                 url,
                 data={
                     "bot_version": AGENTVERSION,
+                    "algo" : "stable",
                     "gpus": gpu_record,
                     "owner": args.owner,
                     "idle_time": idle_time,
