@@ -336,7 +336,7 @@ def main():
     parser.add_argument("--agent", help="Worker agent name", required=True, default=os.getenv("AGENTNAME"))
     parser.add_argument("--owner", help="Worker agent owner", required=False, default=398901736649261056)
     parser.add_argument("--images_out", help="Directory for render jobs", required=False, default=os.getenv("DD_IMAGES_OUT", "/workspace/out"))
-    parser.add_argument("--poll_interval", type=int, help="Polling interval between jobs", required=False, default=os.getenv("DD_POLLINTERVAL", 5))
+    parser.add_argument("--poll_interval", type=int, help="Polling interval between jobs", required=False, default=os.getenv("DD_POLLINTERVAL", 0))
     parser.add_argument("--dream_time", type=int, help="Time in seconds until dreams", required=False, default=os.getenv("DD_POLLINTERVAL", 300))
     parser.add_argument("--ckpt", help="Path to checkpoint", required=False, default=os.getenv("CKPT", "/weights/sd-v1-3-full-ema.ckpt"))
     parser.add_argument("--config", help="Path to diffusion config", required=False, default=os.getenv("CONFIG", "/workspace/k-diffusion/v1-inference.yaml"))
