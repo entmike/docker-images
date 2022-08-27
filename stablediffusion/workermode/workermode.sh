@@ -21,4 +21,4 @@ pip install -r requirements.txt
 cd /workspace/k-diffusion
 curl -O https://raw.githubusercontent.com/entmike/docker-images/main/stablediffusion/workermode/workermode.py
 
-python workermode.py --api $1 --agent $2 --owner ${3:-398901736649261056} --ckpt "/weights/sd-v1-3-full-ema.ckpt" --config "/workspace/k-diffusion/v1-inference.yaml"
+python workermode.py --api $1 --agent $2 --owner ${3:-398901736649261056} --ckpt "/weights/sd-v1-4.ckpt" --config "/workspace/k-diffusion/v1-inference.yaml"

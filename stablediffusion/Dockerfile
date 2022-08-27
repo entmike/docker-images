@@ -1,5 +1,9 @@
 FROM nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
 
+RUN mkdir /weights && mkdir -p /root/.cache/huggingface && mkdir -p /workspace/out
+ADD stable-diffusion-models/sd-v1-4.ckpt /weights/sd-v1-4.ckpt
+ADD huggingface /root/.cache/huggingface
+
 # Set bash as default shell, non-interactive
 ENV DEBIAN_FRONTEND noninteractive\
     SHELL=/bin/bash
@@ -40,8 +44,6 @@ RUN cp -R stable-diffusion/ldm/ k-diffusion/ && \
     cd k-diffusion && pip install -r requirements.txt
 
 RUN pip install omegaconf pytorch_lightning transformers
-RUN mkdir -p /root/.cache/huggingface && mkdir -p /workspace/out
-ADD huggingface /root/.cache/huggingface
 ADD stable-diffusion.ipynb /workspace/stable-diffusion.ipynb
 ADD workermode /workermode
 ADD start.sh /start.sh
