@@ -315,9 +315,11 @@ def loop(args, accelerator, device, config, model):
             pass
         
         if run:
-            logger.info(f"Sleeping for {args.poll_interval} seconds...  I've been sleeping for {idle_time} seconds.")
-            time.sleep(args.poll_interval)
-            idle_time = idle_time + args.poll_interval
+            poll_interval = args.poll_interval
+            poll_interval = 5
+            logger.info(f"Sleeping for {poll_interval} seconds...  I've been sleeping for {idle_time} seconds.")
+            time.sleep(poll_interval)
+            idle_time = idle_time + poll_interval
         else:
             logger.info("Terminating loop.")
 
