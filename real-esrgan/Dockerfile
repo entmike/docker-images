@@ -36,8 +36,10 @@ RUN cd Real-ESRGAN && pip install -r requirements.txt && python setup.py develop
     wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P experiments/pretrained_models && \
     wget https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth -P /usr/local/lib/python3.8/dist-packages/facexlib/weights && \
     wget https://github.com/xinntao/facexlib/releases/download/v0.2.2/parsing_parsenet.pth -P /usr/local/lib/python3.8/dist-packages/facexlib/weights && \
-    wget https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.3.pth -P /usr/local/lib/python3.8/dist-packages/gfpgan/weights/
-
+    wget https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.3.pth -P /usr/local/lib/python3.8/dist-packages/gfpgan/weights/ && \
+    wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth -P experiments/pretrained_models && \
+    wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth -P experiments/pretrained_models && \
+    wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth -P experiments/pretrained_models
 ADD workermode /workermode
 ADD start.sh /start.sh
 CMD [ "/start.sh" ]

@@ -1,22 +1,152 @@
 import argparse
 import cv2
 import glob
-import os
+import shutil
+import nvsmi
+import subprocess
+import urllib.request
+from loguru import logger
+import time, requests, json, os
+from dotenv import load_dotenv
+import traceback
+from datetime import datetime, timedelta
+from types import SimpleNamespace
+
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from realesrgan import RealESRGANer
 from realesrgan.archs.srvgg_arch import SRVGGNetCompact
-load_dotenv()
+from gfpgan import GFPGANer
 
+load_dotenv()
+AGENTVERSION = 'esrgan_v1'
+
+def deliver(args, job, duration):
+    url = f"{args.api}/v3/deliveresrgan"
+    filepath = os.path.join(args.images_out, f"{job['augid']}.png")
+    logger.info(url)
+    files = {
+        "file": open(filepath, "rb")
+    }
+    values = {
+        "duration" : 0.0,
+        "agent_id" : args.agent,
+        "algo" : "esrgan",
+        "agent_version" : AGENTVERSION,
+        "owner" : args.owner,
+        "uuid" : job['params']['uuid'],
+        "augid" : job['augid'],
+    }
+    # Upload payload
+    try:
+        logger.info(f"🌍 Uploading {filepath} to {url}...")
+        results = requests.post(url, files=files, data=values)
+        try:
+            feedback = results.json()
+        except:
+            feedback = results.text
+        logger.info(feedback)
+    except:
+        logger.error("Error uploading image.")
+        import traceback
+        tb = traceback.format_exc()
+        logger.error(tb)
+
+    # if not os.getenv('WORKER_SAVEFILES'):
+    #     try:
+    #         # Delete sample
+    #         os.unlink(filepath)
+    #         # Clean up directory
+    #         shutil.rmtree(sample_path)
+    #     except:
+    #         logger.error(f"Error when trying to clean up files for {details['uuid']}")
+    #         import traceback
+    #         tb = traceback.format_exc()
+    #         logger.error(tb)
+            
+def do_job(args, job):
+    # determine models according to model names
+    logger.info(job)
+    params = job["params"]
+    model_name = params["model_name"]
+    model_name = model_name.split('.')[0]
+    if model_name in ['RealESRGAN_x4plus', 'RealESRNet_x4plus']:  # x4 RRDBNet model
+        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
+        netscale = 4
+    elif model_name in ['RealESRGAN_x4plus_anime_6B']:  # x4 RRDBNet model with 6 blocks
+        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=4)
+        netscale = 4
+    elif model_name in ['RealESRGAN_x2plus']:  # x2 RRDBNet model
+        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
+        netscale = 2
+    elif model_name in ['realesr-animevideov3']:  # x4 VGG-style model (XS size)
+        model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=16, upscale=4, act_type='prelu')
+        netscale = 4
+
+    # determine model paths
+    model_path = os.path.join('/workspace/Real-ESRGAN/experiments/pretrained_models', model_name + '.pth')
+    if not os.path.isfile(model_path):
+        model_path = os.path.join('/workspace/Real-ESRGAN/realesrgan/weights', model_name + '.pth')
+    if not os.path.isfile(model_path):
+        raise ValueError(f'Model {model_name} does not exist.')
+
+    # restorer
+    print("Loading restorer")
+    upsampler = RealESRGANer(
+        scale=netscale,
+        model_path=model_path,
+        model=model,
+        tile=params["tile"],
+        tile_pad=params["tile_pad"],
+        pre_pad=params["pre_pad"],
+        half=not params["fp32"],
+        gpu_id=0)
+  
+    uuid = params["uuid"]
+    augid = job["augid"]
+    url = f"https://s3.us-east-1.amazonaws.com/images.feverdreams.app/images/{uuid}.png"
+
+    logger.info(f"🌍 Downloading {url}...") 
+    filepath = os.path.join(args.images_out, f"{uuid}.png")
+    urllib.request.urlretrieve(url, filepath)
+    imgname, extension = os.path.splitext(os.path.basename(filepath))
+    print(f'Upscaling {imgname}')
+
+    img = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
+    try:
+        if params["face_enhance"]:
+            print("Loading face enhancer.")
+            face_enhancer = GFPGANer(
+                model_path='https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.3.pth',
+                upscale=params["outscale"],
+                arch='clean',
+                channel_multiplier=2,
+                bg_upsampler=upsampler)
+            _, _, output = face_enhancer.enhance(img, has_aligned=False, only_center_face=False, paste_back=True)
+        else:
+            output, _ = upsampler.enhance(img, outscale=params["outscale"])
+    except RuntimeError as error:
+        print('Error', error)
+        print('If you encounter CUDA out of memory, try to set --tile with a smaller number.')
+    else:
+        extension = extension[1:]
+        save_path = os.path.join(args.images_out, f'{augid}.{extension}')
+        logger.info(f"Saving augmented image to '{save_path}'")
+        cv2.imwrite(save_path, output)
+    
+    duration = 0.0
+    
+    deliver(args, job, duration)
+    
 def loop(args):
     # Start bot loop
     run = True
     idle_time = 0
     boot_time = datetime.utcnow()
-    
+    os.makedirs(args.images_out, exist_ok=True)
     while run:
         start_time = time.time()
         gpu = list(nvsmi.get_gpus())[0]
-        total, used, free = shutil.disk_usage(args.out)
+        total, used, free = shutil.disk_usage(args.images_out)
         import psutil
         try:
             meminfo = psutil.virtual_memory()
@@ -57,7 +187,7 @@ def loop(args):
                     "memory" : memdict
                 }
             ).json()
-            
+            logger.info(results)
             if "command" in results:
                 if results["command"] == 'terminate':
                     logger.info("🛑 Received terminate instruction.  Cya.")
@@ -66,7 +196,7 @@ def loop(args):
             if results["success"]:
                 if "details" in results:
                     details = results["details"]
-                    logger.info(f"Job {details['uuid']} received.")
+                    logger.info(f"Job {details['params']['uuid']} received.")
                     idle_time = 0
                     do_job(args, details)
             else:
@@ -86,91 +216,6 @@ def loop(args):
             idle_time = idle_time + poll_interval
         else:
             logger.info("Terminating loop.")
-    
-    # determine models according to model names
-    args.model_name = args.model_name.split('.')[0]
-    if args.model_name in ['RealESRGAN_x4plus', 'RealESRNet_x4plus']:  # x4 RRDBNet model
-        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
-        netscale = 4
-    elif args.model_name in ['RealESRGAN_x4plus_anime_6B']:  # x4 RRDBNet model with 6 blocks
-        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=4)
-        netscale = 4
-    elif args.model_name in ['RealESRGAN_x2plus']:  # x2 RRDBNet model
-        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
-        netscale = 2
-    elif args.model_name in ['realesr-animevideov3']:  # x4 VGG-style model (XS size)
-        model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=16, upscale=4, act_type='prelu')
-        netscale = 4
-
-    # determine model paths
-    model_path = os.path.join('/workspace/Real-ESRGAN/experiments/pretrained_models', args.model_name + '.pth')
-    if not os.path.isfile(model_path):
-        model_path = os.path.join('/workspace/Real-ESRGAN/realesrgan/weights', args.model_name + '.pth')
-    if not os.path.isfile(model_path):
-        raise ValueError(f'Model {args.model_name} does not exist.')
-
-    # restorer
-    print("Loading restorer")
-    upsampler = RealESRGANer(
-        scale=netscale,
-        model_path=model_path,
-        model=model,
-        tile=args.tile,
-        tile_pad=args.tile_pad,
-        pre_pad=args.pre_pad,
-        half=not args.fp32,
-        gpu_id=args.gpu_id)
-
-    print("Loading face enhancer.")
-    from gfpgan import GFPGANer
-    face_enhancer = GFPGANer(
-        model_path='https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.3.pth',
-        upscale=args.outscale,
-        arch='clean',
-        channel_multiplier=2,
-        bg_upsampler=upsampler)
-
-    os.makedirs(args.output, exist_ok=True)
-
-    job = {
-        image : "https://images.feverdreams.app/images/e8890f5252bf20438e090210a1a2e2cf8940a32bb926cffe912a0dd00d2125a6.png"
-    }
-    
-    if os.path.isfile(args.input):
-        paths = [args.input]
-    else:
-        paths = sorted(glob.glob(os.path.join(args.input, '*')))
-
-    for idx, path in enumerate(paths):
-        imgname, extension = os.path.splitext(os.path.basename(path))
-        print('Testing', idx, imgname)
-
-        img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-        if len(img.shape) == 3 and img.shape[2] == 4:
-            img_mode = 'RGBA'
-        else:
-            img_mode = None
-
-        try:
-            if args.face_enhance:
-                _, _, output = face_enhancer.enhance(img, has_aligned=False, only_center_face=False, paste_back=True)
-            else:
-                output, _ = upsampler.enhance(img, outscale=args.outscale)
-        except RuntimeError as error:
-            print('Error', error)
-            print('If you encounter CUDA out of memory, try to set --tile with a smaller number.')
-        else:
-            if args.ext == 'auto':
-                extension = extension[1:]
-            else:
-                extension = args.ext
-            if img_mode == 'RGBA':  # RGBA images should be saved in png format
-                extension = 'png'
-            if args.suffix == '':
-                save_path = os.path.join(args.output, f'{imgname}.{extension}')
-            else:
-                save_path = os.path.join(args.output, f'{imgname}_{args.suffix}.{extension}')
-            cv2.imwrite(save_path, output)
 
 def main():
     """Inference demo for Real-ESRGAN.
@@ -183,36 +228,6 @@ def main():
     parser.add_argument("--poll_interval", type=int, help="Polling interval between jobs", required=False, default=os.getenv("DD_POLLINTERVAL", 0))
     parser.add_argument("--dream_time", type=int, help="Time in seconds until dreams", required=False, default=os.getenv("DD_POLLINTERVAL", 300))   
     
-    # parser.add_argument('-i', '--input', type=str, default='inputs', help='Input image or folder')
-    # parser.add_argument(
-    #     '-n',
-    #     '--model_name',
-    #     type=str,
-    #     default='RealESRGAN_x4plus',
-    #     help=('Model names: RealESRGAN_x4plus | RealESRNet_x4plus | RealESRGAN_x4plus_anime_6B | RealESRGAN_x2plus | '
-    #           'realesr-animevideov3'))
-    # parser.add_argument('-o', '--output', type=str, default='results', help='Output folder')
-    # parser.add_argument('-s', '--outscale', type=float, default=4, help='The final upsampling scale of the image')
-    # parser.add_argument('--suffix', type=str, default='out', help='Suffix of the restored image')
-    # parser.add_argument('-t', '--tile', type=int, default=0, help='Tile size, 0 for no tile during testing')
-    # parser.add_argument('--tile_pad', type=int, default=10, help='Tile padding')
-    # parser.add_argument('--pre_pad', type=int, default=0, help='Pre padding size at each border')
-    # parser.add_argument('--face_enhance', action='store_true', help='Use GFPGAN to enhance face')
-    # parser.add_argument(
-    #     '--fp32', action='store_true', help='Use fp32 precision during inference. Default: fp16 (half precision).')
-    # parser.add_argument(
-    #     '--alpha_upsampler',
-    #     type=str,
-    #     default='realesrgan',
-    #     help='The upsampler for the alpha channels. Options: realesrgan | bicubic')
-    # parser.add_argument(
-    #     '--ext',
-    #     type=str,
-    #     default='auto',
-    #     help='Image extension. Options: auto | jpg | png, auto means using the same extension as inputs')
-    # parser.add_argument(
-    #     '-g', '--gpu-id', type=int, default=None, help='gpu device to use (default=None) can be 0,1,2 for multi-gpu')
-
     args = parser.parse_args()
     loop(args)
 
