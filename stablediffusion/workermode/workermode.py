@@ -128,9 +128,9 @@ def do_run(accelerator, device, model, config, opt):
                             sampler_method = "k_lms"
 
                         if sampler_method == "ddim":
-                            sampler = DDIMSampler(model_wrap_cfg)
+                            sampler = DDIMSampler(model)
                         if sampler_method == "plms":
-                            sampler = PLMSSampler(model_wrap_cfg)
+                            sampler = PLMSSampler(model)
                         if sampler_method == "k_lms":
                             sampler = K.sampling.sample_lms(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
                         if sampler_method == "k_euler":
