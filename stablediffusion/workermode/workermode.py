@@ -28,7 +28,7 @@ from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 
-AGENTVERSION = "sd-1-4-v1"
+AGENTVERSION = "sd-1-4-v1.1"
 
 def chunk(it, size):
     it = iter(it)
@@ -119,8 +119,16 @@ def do_run(accelerator, device, model, config, opt):
                         x = torch.randn([opt.n_samples, *shape], device=device) * sigmas[0]
                         model_wrap_cfg = CFGDenoiser(model_wrap)
                         extra_args = {'cond': c, 'uncond': uc, 'cond_scale': opt.scale}
-                        samples_ddim = K.sampling.sample_lms(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
-                        x_samples_ddim = model.decode_first_stage(samples_ddim)
+                        
+                        sampler = K.sampling.sample_lms(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
+                        
+                        if not opt.sampler or opt.sampler == "k_lms":
+                            sampler = K.sampling.sample_lms(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
+                        
+                        if opt.sampler == "k_euler_ancestral":
+                            sampler = K.sampling.sample_euler_ancestral(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
+
+                        x_samples_ddim = model.decode_first_stage(sampler)
                         x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
                         x_samples_ddim = accelerator.gather(x_samples_ddim)
 
