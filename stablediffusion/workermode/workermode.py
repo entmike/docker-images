@@ -28,7 +28,7 @@ from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 
-AGENTVERSION = "sd-1-4-v1.1a"
+AGENTVERSION = "sd-1-4-v1.1b"
 
 def chunk(it, size):
     it = iter(it)
@@ -163,6 +163,10 @@ def do_job(args, details, accelerator, device, model, config):
     params = details["params"]
     # Grab start timestamp
     start_time = time.time()
+    try:
+        sampler = params["sampler"]
+    except:
+        sampler = "k_lms"
 
     # Run Stable
     try:
@@ -176,8 +180,8 @@ def do_job(args, details, accelerator, device, model, config):
             "H" : params["width_height"][1],
             "seed": params["seed"],
             "prompt" : params["prompt"],
-            "scale" : params["scale"],            
-            
+            "scale" : params["scale"],
+            "sampler" : sampler,
             "outdir" : args.out,
             "skip_grid" : True,
             "skip_save" : False,
