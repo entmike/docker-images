@@ -137,7 +137,7 @@ def do_run(accelerator, device, model, config, opt):
                             sampler = K.sampling.sample_euler(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
                         if sampler_method == "k_euler_ancestral":
                             sampler = K.sampling.sample_euler_ancestral(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
-                        if sampler_methodr == "k_heun":
+                        if sampler_method == "k_heun":
                             sampler = K.sampling.sample_heunl(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
                         if sampler_method == "k_dpm_2":
                             sampler = K.sampling.sample_dpm_2(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
