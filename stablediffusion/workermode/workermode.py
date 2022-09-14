@@ -28,7 +28,7 @@ from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 
-AGENTVERSION = "sd-1-4-v1.1"
+AGENTVERSION = "sd-1-4-v1.1a"
 
 def chunk(it, size):
     it = iter(it)
