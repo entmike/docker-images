@@ -162,7 +162,7 @@ def do_run(accelerator, device, model, config, opt):
                         
                         shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
                         
-                        x = create_random_tensors(shape, seeds=[opt.seed], device)
+                        x = create_random_tensors(shape, seeds=[opt.seed], device=device)
                         
                         # https://github.com/sd-webui/stable-diffusion-webui/blob/2236e8b5854092054e2c30edc559006ace53bf96/scripts/webui.py#L1137-L1139
                         sampling_kwargs = {
