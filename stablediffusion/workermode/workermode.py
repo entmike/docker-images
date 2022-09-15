@@ -28,7 +28,7 @@ from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 
-AGENTVERSION = "sd-1-4-v1.3"
+AGENTVERSION = "sd-1-4-v1.4"
 
 def chunk(it, size):
     it = iter(it)
@@ -83,7 +83,7 @@ class KDiffusionSampler:
 
         return samples_ddim, None
 
-def create_random_tensors(shape, seeds):
+def create_random_tensors(shape, seeds, device):
     xs = []
     for seed in seeds:
         torch.manual_seed(seed)
@@ -162,7 +162,7 @@ def do_run(accelerator, device, model, config, opt):
                         
                         shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
                         
-                        x = create_random_tensors(shape, seeds=[opt.seed])
+                        x = create_random_tensors(shape, seeds=[opt.seed], device)
                         
                         # https://github.com/sd-webui/stable-diffusion-webui/blob/2236e8b5854092054e2c30edc559006ace53bf96/scripts/webui.py#L1137-L1139
                         sampling_kwargs = {
