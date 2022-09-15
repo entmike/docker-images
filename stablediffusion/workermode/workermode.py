@@ -67,21 +67,63 @@ class CFGDenoiser(nn.Module):
         uncond, cond = self.inner_model(x_in, sigma_in, cond=cond_in).chunk(2)
         return uncond + (cond - uncond) * cond_scale
 
+class KDiffusionSampler:
+    def __init__(self, m, sampler):
+        self.model = m
+        self.model_wrap = K.external.CompVisDenoiser(m)
+        self.schedule = sampler
+    def get_sampler_name(self):
+        return self.schedule
+    def sample(self, S, conditioning, batch_size, shape, verbose, unconditional_guidance_scale, unconditional_conditioning, eta, x_T):
+        sigmas = self.model_wrap.get_sigmas(S)
+        x = x_T * sigmas[0]
+        model_wrap_cfg = CFGDenoiser(self.model_wrap)
+
+        samples_ddim = K.sampling.__dict__[f'sample_{self.schedule}'](model_wrap_cfg, x, sigmas, extra_args={'cond': conditioning, 'uncond': unconditional_conditioning, 'cond_scale': unconditional_guidance_scale}, disable=False)
+
+        return samples_ddim, None
+
+def create_random_tensors(shape, seeds):
+    xs = []
+    for seed in seeds:
+        torch.manual_seed(seed)
+        xs.append(torch.randn(shape, device=device))
+    x = torch.stack(xs)
+    return x
+
 def do_run(accelerator, device, model, config, opt):
     from types import SimpleNamespace
     opt = SimpleNamespace(**opt)
     seed_everything(opt.seed)
-    seeds = torch.randint(-2 ** 63, 2 ** 63 - 1, [accelerator.num_processes])
-    torch.manual_seed(seeds[accelerator.process_index].item())
-
-    if opt.plms:
+    
+    try:
+        sampler_method = opt.sampler
+    except:
+        sampler_method = "ddim"
+    
+    sampler_method = sampler_method.lower()
+    
+    # Ported from https://github.com/sd-webui/stable-diffusion-webui/blob/2236e8b5854092054e2c30edc559006ace53bf96/scripts/webui.py#L1115-L1132
+    if sampler_method == 'plms':
         sampler = PLMSSampler(model)
+        opt.ddim_eta = 0.0
+    elif sampler_method == 'ddim':
+        sampler = DDIMSampler(model)
+    elif sampler_method == 'k_dpm_2_ancestral' or sampler_method == 'k_dpm_2_a':
+        sampler = KDiffusionSampler(model, 'dpm_2_ancestral')
+    elif sampler_method == 'k_dpm_2':
+        sampler = KDiffusionSampler(model, 'dpm_2')
+    elif sampler_method == 'k_euler_ancestral' or sampler_method == 'k_euler_a':
+        sampler = KDiffusionSampler(model, 'euler_ancestral')
+    elif sampler_method == 'k_euler':
+        sampler = KDiffusionSampler(model, 'euler')
+    elif sampler_method == 'k_heun':
+        sampler = KDiffusionSampler(model, 'heun')
+    elif sampler_method == 'k_lms':
+        sampler = KDiffusionSampler(model, 'lms')
     else:
         sampler = DDIMSampler(model)
-
-    model_wrap = K.external.CompVisDenoiser(model)
-    sigma_min, sigma_max = model_wrap.sigmas[0].item(), model_wrap.sigmas[-1].item()
-
+    
     os.makedirs(opt.outdir, exist_ok=True)
     outpath = opt.outdir
 
@@ -102,7 +144,7 @@ def do_run(accelerator, device, model, config, opt):
     os.makedirs(sample_path, exist_ok=True)
     base_count = len(os.listdir(sample_path))
     grid_count = len(os.listdir(outpath)) - 1
-
+    
     with torch.no_grad():
         with model.ema_scope():
             with torch.cuda.amp.autocast():
@@ -110,44 +152,38 @@ def do_run(accelerator, device, model, config, opt):
                 all_samples = list()
                 for n in trange(opt.n_iter, desc="Sampling", disable=not accelerator.is_main_process):
                     for prompts in tqdm(data, desc="data", disable=not accelerator.is_main_process):
+                        
                         uc = model.get_learned_conditioning(batch_size * [""])
+                        
                         if isinstance(prompts, tuple):
                             prompts = list(prompts)
+                        
                         c = model.get_learned_conditioning(prompts)
+                        
                         shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
-                        sigmas = model_wrap.get_sigmas(opt.ddim_steps)
-                        x = torch.randn([opt.n_samples, *shape], device=device) * sigmas[0]
-                        model_wrap_cfg = CFGDenoiser(model_wrap)
-                        extra_args = {'cond': c, 'uncond': uc, 'cond_scale': opt.scale}
                         
-                        sampler = K.sampling.sample_lms(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
+                        x = create_random_tensors(shape, seeds=[opt.seed])
                         
-                        try:
-                            sampler_method = opt.sampler
-                        except:
-                            sampler_method = "k_lms"
+                        # https://github.com/sd-webui/stable-diffusion-webui/blob/2236e8b5854092054e2c30edc559006ace53bf96/scripts/webui.py#L1137-L1139
+                        sampling_kwargs = {
+                            'S': opt.ddim_steps,
+                            'conditioning': c,
+                            'batch_size': int(x.shape[0]),
+                            'shape': x[0].shape,
+                            'verbose': False,
+                            'unconditional_guidance_scale': opt.scale,
+                            'unconditional_conditioning': uc,
+                            'eta': opt.ddim_eta,
+                            'x_T': x
+                        }
 
-                        if sampler_method == "ddim":
-                            sampler = DDIMSampler(model)
-                        if sampler_method == "plms":
-                            sampler = PLMSSampler(model)
-                        if sampler_method == "k_lms":
-                            sampler = K.sampling.sample_lms(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
-                        if sampler_method == "k_euler":
-                            sampler = K.sampling.sample_euler(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
-                        if sampler_method == "k_euler_ancestral":
-                            sampler = K.sampling.sample_euler_ancestral(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
-                        if sampler_method == "k_heun":
-                            sampler = K.sampling.sample_heun(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
-                        if sampler_method == "k_dpm_2":
-                            sampler = K.sampling.sample_dpm_2(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
-                        if sampler_method == "k_dpm_2_ancestral":
-                            sampler = K.sampling.sample_dpm_2_ancestral(model_wrap_cfg, x, sigmas, extra_args=extra_args, disable=not accelerator.is_main_process)
-
-                        x_samples_ddim = model.decode_first_stage(sampler)
+                        samples_ddim, _ = sampler.sample(**sampling_kwargs)
+                        
+                        # https://github.com/sd-webui/stable-diffusion-webui/blob/2236e8b5854092054e2c30edc559006ace53bf96/scripts/webui.py#L945
+                        x_samples_ddim = model.decode_first_stage(samples_ddim)
                         x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
                         x_samples_ddim = accelerator.gather(x_samples_ddim)
-
+                        
                         if accelerator.is_main_process and not opt.skip_save:
                             for x_sample in x_samples_ddim:
                                 x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
