@@ -52,24 +52,24 @@ if not os.path.isfile(model_path):
 if not os.path.isfile(model_path):
     raise ValueError(f'Model {model_name} does not exist.')
 
-if not upsampler:
-    upsampler = RealESRGANer(
-        scale=netscale,
-        model_path=model_path,
-        model=model,
-        # tile=params["tile"],
-        # tile_pad=params["tile_pad"],
-        # pre_pad=params["pre_pad"],
-        # half=not params["fp32"],
-        gpu_id=0)
 
-    face_enhancer = GFPGANer(
-        model_path='https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth',
-        upscale=1,
-        arch='clean',
-        channel_multiplier=2,
-        bg_upsampler=None
-    )
+upsampler = RealESRGANer(
+    scale=netscale,
+    model_path=model_path,
+    model=model,
+    # tile=params["tile"],
+    # tile_pad=params["tile_pad"],
+    # pre_pad=params["pre_pad"],
+    # half=not params["fp32"],
+    gpu_id=0)
+
+face_enhancer = GFPGANer(
+    model_path='https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth',
+    upscale=1,
+    arch='clean',
+    channel_multiplier=2,
+    bg_upsampler=None
+)
 
 def get_database():
     from pymongo import MongoClient
