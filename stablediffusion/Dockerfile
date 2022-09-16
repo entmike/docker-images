@@ -34,13 +34,13 @@ RUN pip install \
 RUN jupyter nbextension enable --py widgetsnbextension
 
 RUN git clone https://github.com/crowsonkb/k-diffusion.git && \
-    git clone https://github.com/CompVis/stable-diffusion.git && \
+    git clone https://github.com/rinongal/textual_inversion.git && \
     git clone https://github.com/CompVis/taming-transformers.git 
 
 RUN cd taming-transformers && pip install -e . && cd ..
 
-RUN cp -R stable-diffusion/ldm/ k-diffusion/ && \
-    cp stable-diffusion/configs/stable-diffusion/v1-inference.yaml k-diffusion/ && \
+RUN cp -R textual_inversion/ldm/ k-diffusion/ && \
+    cp textual_inversion/configs/stable-diffusion/v1-inference.yaml k-diffusion/ && \
     cd k-diffusion && pip install -r requirements.txt
 
 RUN pip install omegaconf pytorch_lightning transformers

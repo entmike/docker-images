@@ -1,0 +1,7 @@
+python-dotenv
+argparse
+loguru
+nvsmi
+pymongo[srv]
+boto3
+pillow
