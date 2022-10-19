@@ -1,0 +1,4 @@
+cache/*
+!cache/README.md
+stable-diffusion-models/*
+!stable-diffusion-models/README.md
