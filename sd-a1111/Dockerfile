@@ -29,4 +29,3 @@ ADD workermode/requirements.txt /home/stable/stable-diffusion-webui/workermode-r
 RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && pip install -r workermode-requirements.txt"
 ADD start.sh /start.sh
 ADD workermode/workermode.py /home/stable/stable-diffusion-webui
-ADD workermode/workermode.sh /home/stable/stable-diffusion-webui
