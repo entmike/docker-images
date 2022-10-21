@@ -17,4 +17,4 @@ fi
 
 # Update and start worker
 
-API_URL=$1 API_AGENT=$2 API_OWNER=${3:-398901736649261056} python workermode.py --ckpt /weights/sd-v1-4.ckpt
+API_URL=$1 API_AGENT=$2 API_OWNER=${3:-398901736649261056} python workermode.py --ckpt /weights/v1-5-pruned-emaonly.ckpt

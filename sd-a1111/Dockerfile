@@ -15,8 +15,8 @@ RUN echo "stable ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/stable
 RUN mkdir /weights && chown -Rf stable /weights
 
 USER stable
-# Embed SD 1.4 weights
-ADD stable-diffusion-models/sd-v1-4.ckpt /weights/sd-v1-4.ckpt
+# Embed SD 1.5 weights
+ADD stable-diffusion-models/v1-5-pruned-emaonly.ckpt /weights/v1-5-pruned-emaonly.ckpt
 # Embed torch cache
 RUN mkdir /home/stable/.cache
 ADD cache/* /home/stable/.cache/
