@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND noninteractive\
     SHELL=/bin/bash
 
 RUN apt-get update && apt-get install -y \
-    wget git python3 python3-venv zip unzip sudo libsm6 libxext6 ffmpeg && \
+    wget git python3 python3-venv zip unzip sudo libsm6 libxext6 ffmpeg git && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
 
@@ -17,6 +17,7 @@ RUN mkdir /weights && chown -Rf stable /weights
 USER stable
 # Embed SD 1.5 weights
 ADD stable-diffusion-models/v1-5-pruned-emaonly.ckpt /weights/v1-5-pruned-emaonly.ckpt
+ADD stable-diffusion-models/vae-ft-mse-840000-ema-pruned.ckpt /weights/vae-ft-mse-840000-ema-pruned.ckpt
 # Embed torch cache
 RUN mkdir /home/stable/.cache
 ADD cache/* /home/stable/.cache/
@@ -29,3 +30,5 @@ ADD workermode/requirements.txt /home/stable/stable-diffusion-webui/workermode-r
 RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && pip install -r workermode-requirements.txt"
 ADD start.sh /start.sh
 ADD workermode/workermode.py /home/stable/stable-diffusion-webui
+ADD workermode/workermode.sh /home/stable/stable-diffusion-webui
+RUN git pull

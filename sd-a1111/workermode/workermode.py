@@ -1,3 +1,5 @@
+from PIL import Image, ImageFilter, ImageOps
+import re
 import argparse
 import os, time, requests, json
 from datetime import datetime, timedelta
@@ -25,6 +27,7 @@ import modules.extras
 import modules.face_restoration
 import modules.gfpgan_model as gfpgan
 import modules.img2img
+
 from modules.sd_samplers import all_samplers
 
 import modules.lowvram
@@ -299,6 +302,9 @@ def do_job(cliargs, details):
         "scale" : 7.0,
         "width" : 512,
         "height" : 512,
+        "img2img" : False,
+        "img2img_denoising_strength" : 0.75,
+        "img2img_source_uuid" : "UNKNOWN",
     }
 
     params = details["params"]
@@ -310,57 +316,160 @@ def do_job(cliargs, details):
         args["height"] = params["width_height"][1]
 
     for param in ["prompt","negative_prompt","scale","steps","seed","denoising_strength","restore_faces","tiling","enable_hr",
-        "firstphase_width","firstphase_height"]:
+        "firstphase_width","firstphase_height","img2img","img2img_denoising_strength","img2img_source_uuid"]:
         if param in params:
             args[param] = params[param]
+    
+    positive_embeddings = list(re.findall(r"\<(.*?)\>", args["prompt"]))
+    negative_embeddings = list(re.findall(r"\<(.*?)\>", args["negative_prompt"]))
+
+    embeddings = list(positive_embeddings + negative_embeddings)
+    logger.info(embeddings)
+    # files to import
+    for embedding in embeddings:
+        try:
+            # prompt_dict[token] = open(f"{prompt_salad_path}/{token}.txt").read().splitlines()
+            logger.info(f"⚖️ {embedding} detected.")
+            embUrl = f"https://www.feverdreams.app/embeddings/{embedding}.pt"
+            embPath = os.path.join("/home/stable/stable-diffusion-webui/embeddings",f"~~{embedding}~~.pt")
+            # Download embedding if required
+            if not os.path.exists(embPath):
+                logger.info(f"🌍 Downloading {embUrl} to {embPath}...")
+                response = requests.get(embUrl)
+                open(embPath, "wb").write(response.content)
+            else:
+                logger.info(f"{embPath} found in embeddings dir")
+        except Exception as e:
+            # prompt_dict[token] = None
+            logger.error(f"🛑 Embedding {embedding} could not be found.")
+            tb = traceback.format_exc()
+            logger.error(f"{e}\n\n{tb}")
     try:
-        p = StableDiffusionProcessingTxt2Img(
-            do_not_save_samples = True,         # I save them elsewhere
-            do_not_save_grid = True,
-            sd_model=shared.sd_model,
-            outpath_samples=opts.outdir_samples or opts.outdir_txt2img_samples,
-            outpath_grids=opts.outdir_grids or opts.outdir_txt2img_grids,
-            # prompt=["photograph","banana"],   # This will override n_iter
-            prompt=args["prompt"],
-            styles=["None", "None"],
-            negative_prompt=args["negative_prompt"],
-            seed=args["seed"],
-            subseed=0,
-            subseed_strength=0,
-            seed_resize_from_h=0,
-            seed_resize_from_w=0,
-            seed_enable_extras=False,
-            sampler_index=args["sampler_index"],
-            batch_size=1,
-            n_iter=args["n_iter"],
-            steps=args["steps"],
-            cfg_scale=args["scale"],
-            width=args["width"],
-            height=args["height"],
-            restore_faces=args["restore_faces"],
-            tiling=args["tiling"],
-            enable_hr=args["enable_hr"],
-            denoising_strength=args["denoising_strength"] if args["enable_hr"] else None,
-            firstphase_width=args["firstphase_width"] if args["enable_hr"] else None,
-            firstphase_height=args["firstphase_height"] if args["enable_hr"] else None,
-        )
-        processed = modules.scripts.scripts_txt2img.run(p, 0)
-        if processed is None:
-            processed = process_images(p)
-            # Grab end timestamp
-            end_time = time.time()
-            # Capture duration
-            duration = end_time - start_time
-            print(processed.info)
-            generation_info_js = processed.js()
-            print(generation_info_js)
+        prompt = args["prompt"]
+        prompt = prompt.replace("<","~~")
+        prompt = prompt.replace(">","~~")
 
-            for i, image in enumerate(processed.images):
-                sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
-                image.save(sample_path)
-                deliver(cliargs, details, duration)
+        negative_prompt = args["negative_prompt"]
+        negative_prompt = negative_prompt.replace("<","~~")
+        negative_prompt = negative_prompt.replace(">","~~")
 
-            shared.total_tqdm.clear()
+        logger.info(f"ℹ️ Prompt: {prompt}")
+        # Reload embeddings
+        modules.sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
+        if(args["img2img"]):
+
+            initUrl = f"https://images.feverdreams.app/images/{args['img2img_source_uuid']}.png"
+            initPath = os.path.join("/tmp",f"{args['img2img_source_uuid']}.png")
+            # Download init if required
+            if not os.path.exists(initPath):
+                logger.info(f"🌍 Downloading image {initUrl} to {initPath}...")
+                response = requests.get(initUrl)
+                open(initPath, "wb").write(response.content)
+            else:
+                logger.info(f"{initPath} found in tmp dir")
+            
+            image = Image.open(initPath)
+            
+            # os.unlink(initPath) # Maybe an agent pref later or a cleanup job.
+
+            p = StableDiffusionProcessingImg2Img(
+                init_images=[image],    # img2img PIL Image
+                sd_model=shared.sd_model,
+                outpath_samples=opts.outdir_samples or opts.outdir_txt2img_samples,
+                outpath_grids=opts.outdir_grids or opts.outdir_txt2img_grids,
+                prompt=prompt,
+                styles=["None", "None"],
+                negative_prompt=negative_prompt,
+                seed=args["seed"],
+                subseed=0,
+                subseed_strength=0,
+                seed_resize_from_h=0,
+                seed_resize_from_w=0,
+                seed_enable_extras=False,
+                sampler_index=args["sampler_index"],
+                batch_size=1,
+                n_iter=args["n_iter"],
+                steps=args["steps"],
+                cfg_scale=args["scale"],
+                width=args["width"],
+                height=args["height"],
+                restore_faces=args["restore_faces"],
+                tiling=args["tiling"],
+                denoising_strength=args["img2img_denoising_strength"]
+                # tiling=tiling,
+                # mask=mask,
+                # mask_blur=mask_blur,
+                # inpainting_fill=inpainting_fill,
+                # resize_mode=resize_mode,
+                # inpaint_full_res=inpaint_full_res,
+                # inpaint_full_res_padding=inpaint_full_res_padding,
+                # inpainting_mask_invert=inpainting_mask_invert,
+            )
+            processed = modules.scripts.scripts_img2img.run(p, 0)
+            if processed is None:
+                processed = process_images(p)
+                # Grab end timestamp
+                end_time = time.time()
+                # Capture duration
+                duration = end_time - start_time
+                print(processed.info)
+                generation_info_js = processed.js()
+                print(generation_info_js)
+
+                for i, image in enumerate(processed.images):
+                    sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
+                    image.save(sample_path)
+                    deliver(cliargs, details, duration)
+
+                shared.total_tqdm.clear()
+        else:
+            p = StableDiffusionProcessingTxt2Img(
+                do_not_save_samples = True,         # I save them elsewhere
+                do_not_save_grid = True,
+                sd_model=shared.sd_model,
+                outpath_samples=opts.outdir_samples or opts.outdir_txt2img_samples,
+                outpath_grids=opts.outdir_grids or opts.outdir_txt2img_grids,
+                # prompt=["photograph","banana"],   # This will override n_iter
+                prompt=args["prompt"],
+                styles=["None", "None"],
+                negative_prompt=args["negative_prompt"],
+                seed=args["seed"],
+                subseed=0,
+                subseed_strength=0,
+                seed_resize_from_h=0,
+                seed_resize_from_w=0,
+                seed_enable_extras=False,
+                sampler_index=args["sampler_index"],
+                batch_size=1,
+                n_iter=args["n_iter"],
+                steps=args["steps"],
+                cfg_scale=args["scale"],
+                width=args["width"],
+                height=args["height"],
+                restore_faces=args["restore_faces"],
+                tiling=args["tiling"],
+                enable_hr=args["enable_hr"],
+                denoising_strength=args["denoising_strength"] if args["enable_hr"] else None,
+                firstphase_width=args["firstphase_width"] if args["enable_hr"] else None,
+                firstphase_height=args["firstphase_height"] if args["enable_hr"] else None,
+            )
+            processed = modules.scripts.scripts_txt2img.run(p, 0)
+            if processed is None:
+                processed = process_images(p)
+                # Grab end timestamp
+                end_time = time.time()
+                # Capture duration
+                duration = end_time - start_time
+                print(processed.info)
+                generation_info_js = processed.js()
+                print(generation_info_js)
+
+                for i, image in enumerate(processed.images):
+                    sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
+                    image.save(sample_path)
+                    deliver(cliargs, details, duration)
+
+                shared.total_tqdm.clear()
     except Exception as e:
         connected = True #TODO: what?
         if connected:
@@ -478,7 +587,7 @@ if __name__ == "__main__":
     gfpgan.setup_model(cmd_opts.gfpgan_models_path)
     shared.face_restorers.append(modules.face_restoration.FaceRestoration())
     modelloader.load_upscalers()
-    modules.scripts.load_scripts(os.path.join(script_path, "scripts"))
+    modules.scripts.load_scripts()
     shared.sd_model = modules.sd_models.load_model()
     shared.opts.onchange("sd_model_checkpoint", wrap_queued_call(lambda: modules.sd_models.reload_model_weights(shared.sd_model)))
     shared.opts.onchange("sd_hypernetwork", wrap_queued_call(lambda: modules.hypernetworks.hypernetwork.load_hypernetwork(shared.opts.sd_hypernetwork)))

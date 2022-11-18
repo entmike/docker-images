@@ -3,3 +3,4 @@ argparse
 loguru
 nvsmi
 psutil
+GitPython
