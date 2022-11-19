@@ -1,0 +1,6 @@
+python-dotenv
+argparse
+loguru
+nvsmi
+psutil
+GitPython
