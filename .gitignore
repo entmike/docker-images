@@ -44,6 +44,10 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+# Special
+!everydream/.cache/
+everydream/.cache/*
+!everydream/.cache/README.md
 nosetests.xml
 coverage.xml
 *.cover

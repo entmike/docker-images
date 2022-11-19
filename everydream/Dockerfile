@@ -14,6 +14,9 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
 # Put conda in path so we can use conda activate
 ENV PATH=$CONDA_DIR/bin:$PATH
 
+# Pre-fill .cache
+ADD .cache /root/.cache
+
 # Add EveryDream repo
 ADD repo/EveryDream-trainer /everydream
 
@@ -22,7 +25,6 @@ WORKDIR /everydream
 RUN conda env create -f environment.yaml
 RUN conda init bash
 
-# Pre-fill .cache
-ADD .cache /root/.cache
 ADD welcome-banner.txt /root/welcome-banner.txt
-RUN echo 'cat ~/welcome-banner.txt && echo ${DD_VERSION}' >> ~/.bashrc 
+RUN echo "cat ~/welcome-banner.txt && echo ${DD_VERSION}" >> ~/.bashrc && \
+    echo "conda activate everydream" >> ~/.bashrc
