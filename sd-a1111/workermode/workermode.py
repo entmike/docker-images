@@ -354,6 +354,7 @@ def do_job(cliargs, details):
         negative_prompt = negative_prompt.replace(">","~~")
 
         logger.info(f"ℹ️ Prompt: {prompt}")
+        logger.info(f"ℹ️ Negative Prompt: {negative_prompt}")
         # Reload embeddings
         modules.sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
         if(args["img2img"]):
@@ -430,9 +431,9 @@ def do_job(cliargs, details):
                 outpath_samples=opts.outdir_samples or opts.outdir_txt2img_samples,
                 outpath_grids=opts.outdir_grids or opts.outdir_txt2img_grids,
                 # prompt=["photograph","banana"],   # This will override n_iter
-                prompt=args["prompt"],
+                prompt=prompt,
                 styles=["None", "None"],
-                negative_prompt=args["negative_prompt"],
+                negative_prompt=negative_prompt,
                 seed=args["seed"],
                 subseed=0,
                 subseed_strength=0,
