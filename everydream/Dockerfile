@@ -2,7 +2,7 @@ FROM nvidia/cuda:11.7.1-devel-ubuntu20.04
 
 # Install base utilities
 RUN apt-get update && \
-    apt-get install -y wget git && \
+    apt-get install -y wget git git-lfs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -38,7 +38,9 @@ RUN bash -c "git clone https://github.com/salesforce/BLIP scripts/BLIP"
 RUN bash -c "source activate everydream && pip install aiofiles timm fairscale colorama"
 
 # Install LAION2B-en Dataset parquets
-RUN rm laion/* && git clone https://huggingface.co/datasets/laion/laion2B-en-aesthetic laion
+RUN rm laion/* && \
+    git lfs install && \
+    git clone https://huggingface.co/datasets/laion/laion2B-en-aesthetic laion
 
 # Finish up
 WORKDIR /everydream
