@@ -35,11 +35,14 @@ ADD .toolcache /tools/.cache
 
 # Install pre-requisites (requirements.txt not needed b/c conda env)
 RUN bash -c "git clone https://github.com/salesforce/BLIP scripts/BLIP"
-RUN bash -c "source activate everydream && pip install aiofiles timm fairscale"
+RUN bash -c "source activate everydream && pip install aiofiles timm fairscale colorama"
+
+# Install LAION2B-en Dataset parquets
+RUN git clone https://huggingface.co/datasets/laion/laion2B-en-aesthetic
 
 # Finish up
 WORKDIR /everydream
 
-# Add welcome banner and default to everydream conda env
+# Add welcome banner
 ADD welcome-banner.txt /root/welcome-banner.txt
-RUN echo "cat ~/welcome-banner.txt && echo ${DD_VERSION}" >> ~/.bashrc
+RUN echo "cat ~/welcome-banner.txt" >> ~/.bashrc
