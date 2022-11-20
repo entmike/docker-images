@@ -38,7 +38,7 @@ RUN bash -c "git clone https://github.com/salesforce/BLIP scripts/BLIP"
 RUN bash -c "source activate everydream && pip install aiofiles timm fairscale colorama"
 
 # Install LAION2B-en Dataset parquets
-RUN git clone https://huggingface.co/datasets/laion/laion2B-en-aesthetic
+RUN rm laion/* && git clone https://huggingface.co/datasets/laion/laion2B-en-aesthetic laion
 
 # Finish up
 WORKDIR /everydream
