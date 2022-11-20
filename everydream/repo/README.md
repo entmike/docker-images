@@ -6,4 +6,5 @@ From a terminal in this `repo` directory, run:
 
 ```sh
 git clone https://github.com/victorchall/EveryDream-trainer.git
+git clone https://github.com/victorchall/EveryDream.git
 ```

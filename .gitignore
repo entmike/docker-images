@@ -48,6 +48,9 @@ htmlcov/
 !everydream/.cache/
 everydream/.cache/*
 !everydream/.cache/README.md
+everydream/.toolcache/*
+!everydream/.toolecache
+!everydream/.toolcache/README.md
 nosetests.xml
 coverage.xml
 *.cover

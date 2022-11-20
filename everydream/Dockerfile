@@ -24,7 +24,22 @@ ADD repo/EveryDream-trainer /everydream
 WORKDIR /everydream
 RUN conda env create -f environment.yaml
 RUN conda init bash
+RUN echo "conda activate everydream" >> ~/.bashrc
 
+# Add EveryDream tools
+ADD repo/EveryDream /tools
+WORKDIR /tools
+
+# Pre-fill tools .cache
+ADD .toolcache /tools/.cache
+
+# Install pre-requisites (requirements.txt not needed b/c conda env)
+RUN bash -c "git clone https://github.com/salesforce/BLIP scripts/BLIP"
+RUN bash -c "source activate everydream && pip install aiofiles timm fairscale"
+
+# Finish up
+WORKDIR /everydream
+
+# Add welcome banner and default to everydream conda env
 ADD welcome-banner.txt /root/welcome-banner.txt
-RUN echo "cat ~/welcome-banner.txt && echo ${DD_VERSION}" >> ~/.bashrc && \
-    echo "conda activate everydream" >> ~/.bashrc
+RUN echo "cat ~/welcome-banner.txt && echo ${DD_VERSION}" >> ~/.bashrc
