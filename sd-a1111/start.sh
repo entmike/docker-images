@@ -22,5 +22,5 @@ then
     echo "Jupyter Lab Started"
 else
     git pull
-    python launch.py --listen --vae-path /weights/vae-ft-mse-840000-ema-pruned.ckpt --enable-insecure-extension-access
+    python launch.py --listen --no-half --xformers --enable-insecure-extension-access
 fi
