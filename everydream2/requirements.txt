@@ -11,3 +11,6 @@ pytorch-lightning
 OmegaConf
 numpy
 colorama
+ninja
+triton
+requests
