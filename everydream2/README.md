@@ -8,6 +8,7 @@ This folder contains Dockerfiles for EveryDream.
 docker run -it --rm --gpus "device=0" \
 -v /mnt/user/work/models/Stable-diffusion/:/sdmodels \
 -v /mnt/user/work/everydream/:/data \
+-v /mnt/user/work/everydream_logs/:/everydream2/logs \
 entmike/everydream2 bash
 ```
 
