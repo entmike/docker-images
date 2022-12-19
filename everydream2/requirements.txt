@@ -1,0 +1,13 @@
+diffusers[torch]
+pynvml
+bitsandbytes
+ftfy
+aiohttp
+tensorboard>=2.11.0
+protobuf
+wandb
+pyre-extensions
+pytorch-lightning
+OmegaConf
+numpy
+colorama
