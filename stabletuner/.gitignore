@@ -1,0 +1,4 @@
+cache/*
+!cache/README.md
+repos/*
+!repos/README.md

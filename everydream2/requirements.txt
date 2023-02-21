@@ -1,4 +1,4 @@
-diffusers[torch]
+diffusers[torch]==0.10.2
 pynvml
 bitsandbytes
 ftfy
@@ -14,3 +14,4 @@ colorama
 ninja
 triton
 requests
+debug
