@@ -80,27 +80,31 @@ def do_job(cliargs, details):
     # DEFAULTS
     args = {
         "parent_uuid" : "UNKNOWN",
-        "enable_hr" : False,
         "tiling" : False,
         "restore_faces" : False,
         "firstphase_width" : 0,
         "firstphase_height" : 0,
-        "denoising_strength" : 0.75,
         "prompt" : "A lonely robot",
         "negative_prompt" : "",
         "seed" : 0,
-        "sampler_index" : 0,
+        "sampler" : "Euler a",
         "n_iter" : 1,
         "steps" : 20,
         "scale" : 7.0,
         "width" : 512,
         "height" : 512,
+        # Highres
+        "enable_hr" : False,
+        "denoising_strength" : 0.75,
+        "hr_scale" : 2,
+        "hr_upscale" : "None",
         # img2img
         "img2img" : False,
         "img2img_denoising_strength" : 0.75,
         "img2img_source_uuid" : "UNKNOWN",
         # controlnet
         "controlnet_enabled" : False,
+        "controlnet_guessmode" : False,
         "controlnet_module": "canny",
         "controlnet_model": "control_sd15_canny [fef5e48e]",
         "controlnet_weight": 1,
@@ -116,18 +120,28 @@ def do_job(cliargs, details):
     }
 
     params = details["params"]
-    
-    # sampler_index = sampler_to_index(txt2imgreq.sampler_index)
 
     if "width_height" in params:
         args["width"] = params["width_height"][0]
         args["height"] = params["width_height"][1]
 
-    for param in ["parent_uuid","prompt","negative_prompt","scale","steps","seed","denoising_strength","restore_faces","tiling","enable_hr",
-        "firstphase_width","firstphase_height","img2img","img2img_denoising_strength","img2img_source_uuid",
-        "controlnet_enabled","controlnet_module","controlnet_model","controlnet_weight","controlnet_guidance"]:
+    for param in [
+        "parent_uuid","prompt","negative_prompt","scale","steps","seed","restore_faces","tiling","sampler",
+        # Upscale options
+        "enable_hr","denoising_strength","hr_scale","hr_upscale",
+        # ControlNet options
+        "controlnet_enabled","controlnet_guessmode","controlnet_module","controlnet_model","controlnet_weight","controlnet_guidance","controlnet_resizemode",
+        "firstphase_width","firstphase_height",
+        # img2img options
+        "img2img","img2img_denoising_strength","img2img_source_uuid",
+    ]:
+        # If parameter is in jobparams, override args default.
         if param in params:
             args[param] = params[param]
+    
+    # Fix old name to new one
+    if args["sampler"] == "k_euler_ancestral":
+        args["sampler"] = "Euler a"
     
     positive_embeddings = list(re.findall(r"\<(.*?)\>", args["prompt"]))
     negative_embeddings = list(re.findall(r"\<(.*?)\>", args["negative_prompt"]))
@@ -185,8 +199,9 @@ def do_job(cliargs, details):
                 sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
                 image.save(sample_path)
                 deliver(cliargs, details, duration)
-        else:
-            # txt2img API Call here
+
+        if args["controlnet_enabled"]:
+            # ControlNet txt2img API Call here
             # TODO: Allow uploaded/external images
             logger.info(args)
             imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
@@ -195,21 +210,10 @@ def do_job(cliargs, details):
             payload={
                 "prompt": prompt,
                 "negative_prompt": negative_prompt,
-                "controlnet_input_image": [b64],
-                "controlnet_module": args["controlnet_module"],
-                "controlnet_model": args["controlnet_model"],
-                "controlnet_weight": args["controlnet_weight"],
-                "controlnet_guidance": args["controlnet_guidance"],
-                "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
-                "enable_hr": False,
-                "denoising_strength": 0.5,
-                "hr_scale": 1.5,
-                "hr_upscale": "Latent",
-                "guess_mode": False,
                 "seed": args["seed"],
                 "subseed": 0,
                 "subseed_strength": 0,
-                "sampler_index": "Euler a",
+                "sampler_index": args["sampler"],
                 "batch_size": 1,
                 "n_iter": args["n_iter"],
                 "steps": args["steps"],
@@ -217,6 +221,19 @@ def do_job(cliargs, details):
                 "width":args["width"],
                 "height":args["height"],
                 "restore_faces": args["restore_faces"],
+                # ControlNet
+                "controlnet_input_image": [b64],
+                "controlnet_module": args["controlnet_module"],
+                "controlnet_model": args["controlnet_model"],
+                "controlnet_weight": args["controlnet_weight"],
+                "controlnet_guidance": args["controlnet_guidance"],
+                "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
+                "controlnet_guessmode": args["controlnet_guessmode"],
+                # Highres
+                "enable_hr": args["enable_hr"],
+                "denoising_strength": args["denoising_strength"],
+                "hr_scale": args["hr_scale"],
+                "hr_upscale": args["hr_upscale"],
                 # TODO?:
                 "controlnet_mask": [],
                 "controlnet_lowvram": True,
@@ -236,11 +253,76 @@ def do_job(cliargs, details):
             ).json()
             end_time = time.time()
 
-            logger.info(results)
+            # logger.info(results)
             images = results["images"]
             duration = end_time - start_time
-            #for image in images:
-            image = images[0]
+            logger.info(f"{len(images)} images returned.")
+            image=images[0]
+            sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
+            with open(sample_path, 'wb') as f:
+                f.write(base64.b64decode(image))
+                print('File written successfully.')
+            deliver(cliargs, details, duration)
+        
+        if not args["controlnet_enabled"]:
+            # txt2img API Call here
+            logger.info(args)
+            payload = {
+                # Highres
+                "enable_hr": args["enable_hr"],
+                "denoising_strength": args["denoising_strength"],
+                "hr_scale": args["hr_scale"],
+                "hr_upscaler": args["hr_upscale"],
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "styles": [],
+                "seed": args["seed"],
+                "subseed": 0,
+                "subseed_strength": 0,
+                "batch_size": 1,
+                "n_iter": args["n_iter"],
+                "steps": args["steps"],
+                "cfg_scale": args["scale"],
+                "width": args["width"],
+                "height": args["height"],
+                "restore_faces": args["restore_faces"],
+                "tiling": args["tiling"],
+                "sampler_index": args["sampler"],
+                "sampler_name": args["sampler"],
+                # TODO: unknown
+                "firstphase_width": 0,
+                "firstphase_height": 0,
+                "hr_second_pass_steps": 0,
+                "hr_resize_x": 0,
+                "hr_resize_y": 0,
+                "seed_resize_from_h": -1,
+                "seed_resize_from_w": -1,
+                "eta": 0,
+                "s_churn": 0,
+                "s_tmax": 0,
+                "s_tmin": 0,
+                "s_noise": 1,
+                "override_settings": {},
+                "override_settings_restore_afterwards": True
+                # "script_args": [],
+                # "script_name": "",
+            }
+            
+            # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
+            # Grab start timestamp
+            start_time = time.time()
+            results = requests.post(
+                "http://localhost:7860/sdapi/v1/txt2img",
+                headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
+                json=payload
+            ).json()
+            end_time = time.time()
+
+            # logger.info(results)
+            images = results["images"]
+            duration = end_time - start_time
+            logger.info(f"{len(images)} images returned.")
+            image=images[0]
             sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
             with open(sample_path, 'wb') as f:
                 f.write(base64.b64decode(image))
