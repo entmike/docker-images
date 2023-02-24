@@ -28,7 +28,7 @@ else
     # Update ControlNet
     cd /home/stable/stable-diffusion-webui/extensions/sd-webui-controlnet
     # git pull
-    git checkout b0c6d973380eb8fdd2d53387ebce4071cb1e8e5b
+    git checkout $CONTROLNET_COMMIT
     # Launch A1111
     cd /home/stable/stable-diffusion-webui
     python launch.py --listen --no-half --xformers --enable-insecure-extension-access \
