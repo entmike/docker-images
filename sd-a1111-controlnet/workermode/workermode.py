@@ -208,6 +208,13 @@ def do_job(cliargs, details):
             imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
             logger.info(f"🌍 Downloading image for ControlNet: {imgurl}")
             b64=url2base64(imgurl)
+            lowvram = False
+            gpu = list(nvsmi.get_gpus())[0]
+            gpu_mem = gpu.__dict__["mem_total"]
+            logger.info(f"💻 GPU Memory is {gpu_mem}MB")
+            if gpu_mem < 20000:
+                lowvram = True
+            logger.info(f"💻 Low VRAM param set to {lowvram}")
             payload={
                 "prompt": prompt,
                 "negative_prompt": negative_prompt,
@@ -237,14 +244,14 @@ def do_job(cliargs, details):
                 "hr_upscale": args["hr_upscale"],
                 # TODO?:
                 "controlnet_mask": [],
-                "controlnet_lowvram": False,
+                "controlnet_lowvram": lowvram,
                 "controlnet_processor_res": 512,
                 "controlnet_threshold_a": 100,
                 "controlnet_threshold_b": 200,
                 "override_settings": {},
                 "override_settings_restore_afterwards": True
             }
-            logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
+            # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
             # Grab start timestamp
             start_time = time.time()
             results = requests.post(
