@@ -111,10 +111,10 @@ def do_job(cliargs, details):
         "controlnet_weight": 1,
         "controlnet_guidance": 1,
         # TODO?:
-        "controlnet_input_image": [],
+        "controlnet_input_image": [],       # Populated later
         "controlnet_mask": [],
         "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
-        "controlnet_lowvram": True,
+        "controlnet_lowvram": False,
         "controlnet_processor_res": 512,
         "controlnet_threshold_a": 100,
         "controlnet_threshold_b": 200,
@@ -201,10 +201,10 @@ def do_job(cliargs, details):
                 image.save(sample_path)
                 deliver(cliargs, details, duration)
 
-        if args["controlnet_enabled"]:
+        if args["controlnet_enabled"] == True:
             # ControlNet txt2img API Call here
             # TODO: Allow uploaded/external images
-            logger.info(args)
+            logger.info(f"🔮 ControlNet Job: \n{args}")
             imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
             logger.info(f"🌍 Downloading image for ControlNet: {imgurl}")
             b64=url2base64(imgurl)
@@ -237,14 +237,14 @@ def do_job(cliargs, details):
                 "hr_upscale": args["hr_upscale"],
                 # TODO?:
                 "controlnet_mask": [],
-                "controlnet_lowvram": True,
+                "controlnet_lowvram": False,
                 "controlnet_processor_res": 512,
                 "controlnet_threshold_a": 100,
                 "controlnet_threshold_b": 200,
                 "override_settings": {},
                 "override_settings_restore_afterwards": True
             }
-            # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
+            logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
             # Grab start timestamp
             start_time = time.time()
             results = requests.post(
@@ -271,9 +271,9 @@ def do_job(cliargs, details):
             print('File written successfully.')
             deliver(cliargs, details, duration)
         
-        if not args["controlnet_enabled"]:
+        if args["controlnet_enabled"] == False:
             # txt2img API Call here
-            logger.info(args)
+            logger.info(f"🔮 txt2img Job: \n{args}")
             payload = {
                 # Highres
                 "enable_hr": args["enable_hr"],
