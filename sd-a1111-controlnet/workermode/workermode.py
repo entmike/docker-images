@@ -1,6 +1,7 @@
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image, ImageFilter, ImageOps, PngImagePlugin
 import re
 import base64
+from io import BytesIO
 import argparse
 import os, time, requests, json
 from datetime import datetime, timedelta
@@ -259,9 +260,15 @@ def do_job(cliargs, details):
             logger.info(f"{len(images)} images returned.")
             image=images[0]
             sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
-            with open(sample_path, 'wb') as f:
-                f.write(base64.b64decode(image))
-                print('File written successfully.')
+            image_bytes = base64.b64decode(image)
+            image = Image.open(BytesIO(image_bytes))
+            # Remove all EXIF and other metadata
+            data = list(image.getdata())
+            image_without_metadata = Image.new(image.mode, image.size)
+            image_without_metadata.putdata(data)
+            # Save the stripped image
+            image_without_metadata.save(sample_path)
+            print('File written successfully.')
             deliver(cliargs, details, duration)
         
         if not args["controlnet_enabled"]:
@@ -324,9 +331,15 @@ def do_job(cliargs, details):
             logger.info(f"{len(images)} images returned.")
             image=images[0]
             sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
-            with open(sample_path, 'wb') as f:
-                f.write(base64.b64decode(image))
-                print('File written successfully.')
+            image_bytes = base64.b64decode(image)
+            image = Image.open(BytesIO(image_bytes))
+            # Remove all EXIF and other metadata
+            data = list(image.getdata())
+            image_without_metadata = Image.new(image.mode, image.size)
+            image_without_metadata.putdata(data)
+            # Save the stripped image
+            image_without_metadata.save(sample_path)
+            print('File written successfully.')
             deliver(cliargs, details, duration)
 
     except Exception as e:
@@ -401,7 +414,18 @@ def loop(args):
                     details = results["details"]
                     logger.info(f"Job {details['uuid']} received.")
                     idle_time = 0
-                    do_job(args, details)
+                    try:
+                        logger.info("🧪 Checking A1111 API...")
+                        results = requests.get(
+                            "http://localhost:7860/sdapi/v1/cmd-flags",
+                            headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                        ).json()
+                        do_job(args, details)
+                    except Exception as e:
+                        tb = traceback.format_exc()
+                        logger.error(tb)
+                        logger.info("⚠️ A1111 API not loaded yet.  Maybe it is just starting or crashed?")
+                        pass
         
             else:
                 logger.error(results)
