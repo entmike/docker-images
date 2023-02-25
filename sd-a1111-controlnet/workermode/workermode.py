@@ -22,6 +22,7 @@ import shlex
 import platform
 
 AGENTVERSION = "a1111-v2-controlnet"
+CONTROLNET_COMMIT = os.environ.get('CONTROLNET_COMMIT', "UNKNOWN")
 index_url = os.environ.get('INDEX_URL', "")
 
 def url2base64(url):
@@ -396,7 +397,8 @@ def loop(args):
             results = requests.post(
                 url,
                 data={
-                    "bot_version": AGENTVERSION,
+                    "bot_version" : AGENTVERSION,
+                    "controlnet_commit" : CONTROLNET_COMMIT,
                     "algo" : "stable",
                     "repo" : "a1111",
                     "gpus": gpu_record,
