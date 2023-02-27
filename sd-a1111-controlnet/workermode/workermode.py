@@ -106,6 +106,7 @@ def do_job(cliargs, details):
         "img2img_source_uuid" : "UNKNOWN",
         # controlnet
         "controlnet_enabled" : False,
+        "controlnet_ref_img_type" : "piece",
         "controlnet_guessmode" : False,
         "controlnet_module": "canny",
         "controlnet_model": "control_sd15_canny [fef5e48e]",
@@ -132,7 +133,8 @@ def do_job(cliargs, details):
         # Upscale options
         "enable_hr","denoising_strength","hr_scale","hr_upscale",
         # ControlNet options
-        "controlnet_enabled","controlnet_guessmode","controlnet_module","controlnet_model","controlnet_weight","controlnet_guidance","controlnet_resizemode",
+        "controlnet_enabled","controlnet_ref_img_type","controlnet_ref_img_url","controlnet_guessmode","controlnet_module",
+        "controlnet_model","controlnet_weight","controlnet_guidance","controlnet_resizemode",
         "firstphase_width","firstphase_height",
         # img2img options
         "img2img","img2img_denoising_strength","img2img_source_uuid",
@@ -206,15 +208,22 @@ def do_job(cliargs, details):
             # ControlNet txt2img API Call here
             # TODO: Allow uploaded/external images
             logger.info(f"🔮 ControlNet Job: \n{args}")
-            imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
+            if args["controlnet_ref_img_type"] == "piece":
+                imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
+            if args["controlnet_ref_img_type"] == "url":
+                imgurl = args["controlnet_ref_img_url"]
+
             logger.info(f"🌍 Downloading image for ControlNet: {imgurl}")
             b64=url2base64(imgurl)
             lowvram = False
             gpu = list(nvsmi.get_gpus())[0]
             gpu_mem = gpu.__dict__["mem_total"]
             logger.info(f"💻 GPU Memory is {gpu_mem}MB")
-            if gpu_mem < 20000:
-                lowvram = True
+            
+            # TODO: Decide if I want to do this below for 8GB and under cards.
+            # if gpu_mem < 20000:
+            #     lowvram = True
+
             logger.info(f"💻 Low VRAM param set to {lowvram}")
             payload={
                 "prompt": prompt,
@@ -430,10 +439,10 @@ def loop(args):
                             headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
                         ).json()
                         do_job(args, details)
-                    except Exception as e:
-                        tb = traceback.format_exc()
-                        logger.error(tb)
-                        logger.info("⚠️ A1111 API not loaded yet.  Maybe it is just starting or crashed?")
+                    except requests.exceptions.ConnectionError as e:
+                        # tb = traceback.format_exc()
+                        # logger.error(tb)
+                        logger.info("📡 Cannot reach A1111 API.  Maybe it is just starting or crashed?")
                         pass
         
             else:

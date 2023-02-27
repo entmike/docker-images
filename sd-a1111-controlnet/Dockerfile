@@ -45,6 +45,7 @@ RUN git clone https://github.com/Mikubill/sd-webui-controlnet /home/stable/stabl
 ADD start.sh /start.sh
 ADD workermode/workermode.py /home/stable/stable-diffusion-webui
 ADD workermode/workermode.sh /home/stable/stable-diffusion-webui
+ADD workermode/setconfig.py /home/stable/setconfig.py
 ADD workermode/supervisord.conf /etc/supervisor/conf.d/
 
 # Add welcome banner

@@ -13,7 +13,7 @@ then
     echo "SSH Service Started"
 fi
 
-CONTROLNET_COMMIT=${CONTROLNET_COMMIT:-b0c6d973380eb8fdd2d53387ebce4071cb1e8e5b}
+CONTROLNET_COMMIT=${CONTROLNET_COMMIT:-0c45b5a}
 
 if [[ $JUPYTER_PASSWORD ]]
 then
@@ -27,10 +27,13 @@ else
     git pull
     # Update ControlNet
     cd /home/stable/stable-diffusion-webui/extensions/sd-webui-controlnet
-    # git pull
-    git checkout $CONTROLNET_COMMIT
-    # Launch A1111
+    git pull
+    # git checkout $CONTROLNET_COMMIT
+
     cd /home/stable/stable-diffusion-webui
+    # Set ControlNet config
+    python /home/stable/setconfig.py
+    # Launch A1111
     python launch.py --listen --no-half --xformers --enable-insecure-extension-access \
     --api --no-download-sd-model --api-log --enable-console-prompts
 fi
