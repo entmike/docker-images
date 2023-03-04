@@ -81,6 +81,7 @@ def deliver(args, details, duration):
 def do_job(cliargs, details):    
     # DEFAULTS
     args = {
+        "sd_model_checkpoint" : "v1-5-pruned-emaonly.ckpt",
         "parent_uuid" : "UNKNOWN",
         "tiling" : False,
         "restore_faces" : False,
@@ -93,6 +94,7 @@ def do_job(cliargs, details):
         "n_iter" : 1,
         "steps" : 20,
         "scale" : 7.0,
+        "offset_noise" : 0.0,
         "width" : 512,
         "height" : 512,
         # Highres
@@ -129,7 +131,8 @@ def do_job(cliargs, details):
         args["height"] = params["width_height"][1]
 
     for param in [
-        "parent_uuid","prompt","negative_prompt","scale","steps","seed","restore_faces","tiling","sampler",
+        "sd_model_checkpoint",
+        "parent_uuid","prompt","negative_prompt","scale","offset_noise","steps","seed","restore_faces","tiling","sampler",
         # Upscale options
         "enable_hr","denoising_strength","hr_scale","hr_upscale",
         # ControlNet options
@@ -152,36 +155,62 @@ def do_job(cliargs, details):
 
     embeddings = list(positive_embeddings + negative_embeddings)
     # logger.info(embeddings)
+    
+    
+    # TODO: Find a new way - Maybe <ti:blabla>?
     # files to import
-    for embedding in embeddings:
-        try:
-            # prompt_dict[token] = open(f"{prompt_salad_path}/{token}.txt").read().splitlines()
-            logger.info(f"⚖️ {embedding} detected.")
-            embUrl = f"https://www.feverdreams.app/embeddings/{embedding}.pt"
-            embPath = os.path.join("/home/stable/stable-diffusion-webui/embeddings",f"~~{embedding}~~.pt")
-            # Download embedding if required
-            if not os.path.exists(embPath):
-                logger.info(f"🌍 Downloading {embUrl} to {embPath}...")
-                response = requests.get(embUrl)
-                open(embPath, "wb").write(response.content)
-            else:
-                logger.info(f"{embPath} found in embeddings dir")
-        except Exception as e:
-            # prompt_dict[token] = None
-            logger.error(f"🛑 Embedding {embedding} could not be found.")
-            tb = traceback.format_exc()
-            logger.error(f"{e}\n\n{tb}")
+    # for embedding in embeddings:
+    #     try:
+    #         # prompt_dict[token] = open(f"{prompt_salad_path}/{token}.txt").read().splitlines()
+    #         logger.info(f"⚖️ {embedding} detected.")
+    #         embUrl = f"https://www.feverdreams.app/embeddings/{embedding}.pt"
+    #         embPath = os.path.join("/home/stable/stable-diffusion-webui/embeddings",f"~~{embedding}~~.pt")
+    #         # Download embedding if required
+    #         if not os.path.exists(embPath):
+    #             logger.info(f"🌍 Downloading {embUrl} to {embPath}...")
+    #             response = requests.get(embUrl)
+    #             open(embPath, "wb").write(response.content)
+    #         else:
+    #             logger.info(f"{embPath} found in embeddings dir")
+    #     except Exception as e:
+    #         # prompt_dict[token] = None
+    #         logger.error(f"🛑 Embedding {embedding} could not be found.")
+    #         tb = traceback.format_exc()
+    #         logger.error(f"{e}\n\n{tb}")
     try:
         prompt = args["prompt"]
-        prompt = prompt.replace("<","~~")
-        prompt = prompt.replace(">","~~")
-
+        if "offset_noise" in args:
+            if args["offset_noise"] > 0.0 or args["offset_noise"] < 0.0:
+                prompt = f"{prompt}, <lora:epiNoiseoffset_v2:{args['offset_noise']}>"
+    #     prompt = prompt.replace("<","~~")
+    #     prompt = prompt.replace(">","~~")
+    # 
         negative_prompt = args["negative_prompt"]
-        negative_prompt = negative_prompt.replace("<","~~")
-        negative_prompt = negative_prompt.replace(">","~~")
+    #     negative_prompt = negative_prompt.replace("<","~~")
+    #     negative_prompt = negative_prompt.replace(">","~~")
 
         logger.info(f"ℹ️ Prompt: {prompt}")
         logger.info(f"ℹ️ Negative Prompt: {negative_prompt}")
+
+        # Load SD model
+        logger.info(f"🤖 Loading model {args['sd_model_checkpoint']}...")
+        results = requests.post(
+            "http://localhost:7860/sdapi/v1/options",
+            headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
+            json={"sd_model_checkpoint":args["sd_model_checkpoint"]}
+        ).json()
+        
+        if "clip_skip" in args:
+            clip_skip = args['clip_skip']
+        else:
+            clip_skip = 1
+            
+        logger.info(f"🤖 Setting CLIP Skip to {clip_skip}...")
+        results = requests.post(
+            "http://localhost:7860/sdapi/v1/options",
+            headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
+            json={"CLIP_stop_at_last_layers":clip_skip}
+        ).json()
 
         if(args["img2img"]):
 
@@ -226,6 +255,7 @@ def do_job(cliargs, details):
 
             logger.info(f"💻 Low VRAM param set to {lowvram}")
             payload={
+                "sd_model_checkpoint" : args["sd_model_checkpoint"],
                 "prompt": prompt,
                 "negative_prompt": negative_prompt,
                 "seed": args["seed"],
@@ -239,27 +269,31 @@ def do_job(cliargs, details):
                 "width":args["width"],
                 "height":args["height"],
                 "restore_faces": args["restore_faces"],
-                # ControlNet
-                "controlnet_input_image": [b64],
-                "controlnet_module": args["controlnet_module"],
-                "controlnet_model": args["controlnet_model"],
-                "controlnet_weight": args["controlnet_weight"],
-                "controlnet_guidance": args["controlnet_guidance"],
-                "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
-                "controlnet_guessmode": args["controlnet_guessmode"],
+                # ControlNet 
+                "controlnet_units": [
+                    {
+                    "input_image": b64,
+                    "mask": "",
+                    "module": args["controlnet_module"],
+                    "model": args["controlnet_model"],
+                    "weight": args["controlnet_weight"],
+                    "resize_mode": "Scale to Fit (Inner Fit)",
+                    "lowvram": lowvram,
+                    "processor_res": 512,
+                    "threshold_a": 100,
+                    "threshold_b": 200,
+                    "guidance": args["controlnet_guidance"],
+                    "guidance_start": 0,
+                    "guidance_end": 1,
+                    "guessmode": args["controlnet_guessmode"]
+                    }
+                ],
                 # Highres
                 "enable_hr": args["enable_hr"],
                 "denoising_strength": args["denoising_strength"],
                 "hr_scale": args["hr_scale"],
                 "hr_upscale": args["hr_upscale"],
-                # TODO?:
-                "controlnet_mask": [],
-                "controlnet_lowvram": lowvram,
-                "controlnet_processor_res": 512,
-                "controlnet_threshold_a": 100,
-                "controlnet_threshold_b": 200,
-                "override_settings": {},
-                "override_settings_restore_afterwards": True
+                
             }
             # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
             # Grab start timestamp
@@ -335,6 +369,7 @@ def do_job(cliargs, details):
             # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
             # Grab start timestamp
             start_time = time.time()
+            
             results = requests.post(
                 "http://localhost:7860/sdapi/v1/txt2img",
                 headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
@@ -399,58 +434,65 @@ def loop(args):
         
         gpu_record = json.dumps(gpu_record)
         memdict = json.dumps(memdict)
-        
         url = f"{args['api']}/v3/takeorder/{args['agent']}"
-        try:
-            logger.debug(f"🌎 Checking '{url}'...")
-            results = requests.post(
-                url,
-                data={
-                    "bot_version" : AGENTVERSION,
-                    "controlnet_commit" : CONTROLNET_COMMIT,
-                    "algo" : "stable",
-                    "repo" : "a1111",
-                    "gpus": gpu_record,
-                    "owner": args["owner"],
-                    "idle_time": idle_time,
-                    "start_time" : start_time,
-                    "free_space" : free,
-                    "total_space" : total,
-                    "used_space" : used,
-                    "boot_time" : boot_time,
-                    "memory" : memdict
-                }
-            ).json()
-            
-            if "command" in results:
-                if results["command"] == 'terminate':
-                    logger.info("🛑 Received terminate instruction.  Cya.")
-                    run = False    
-                    
-            if results["success"]:
-                if "details" in results:
-                    details = results["details"]
-                    logger.info(f"Job {details['uuid']} received.")
-                    idle_time = 0
-                    try:
-                        logger.info("🧪 Checking A1111 API...")
-                        results = requests.get(
-                            "http://localhost:7860/sdapi/v1/cmd-flags",
-                            headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
-                        ).json()
-                        do_job(args, details)
-                    except requests.exceptions.ConnectionError as e:
-                        # tb = traceback.format_exc()
-                        # logger.error(tb)
-                        logger.info("📡 Cannot reach A1111 API.  Maybe it is just starting or crashed?")
-                        pass
         
-            else:
-                logger.error(results)
-        except Exception as e:
-            tb = traceback.format_exc()
-            logger.error(tb)
+        try:
+            logger.info("🧪 Checking A1111 API...")
+            results = requests.get(
+                "http://localhost:7860/sdapi/v1/memory",
+                headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+            ).json()
+            logger.info(results)
+            
+            # Check API
+            try:
+                logger.debug(f"🌎 Checking '{url}'...")
+                results = requests.post(
+                    url,
+                    data={
+                        "bot_version" : AGENTVERSION,
+                        "controlnet_commit" : CONTROLNET_COMMIT,
+                        "algo" : "stable",
+                        "repo" : "a1111",
+                        "gpus": gpu_record,
+                        "owner": args["owner"],
+                        "idle_time": idle_time,
+                        "start_time" : start_time,
+                        "free_space" : free,
+                        "total_space" : total,
+                        "used_space" : used,
+                        "boot_time" : boot_time,
+                        "memory" : memdict
+                    }
+                ).json()
+
+                if "command" in results:
+                    if results["command"] == 'terminate':
+                        logger.info("🛑 Received terminate instruction.  Cya.")
+                        run = False    
+
+                if results["success"]:
+                    if "details" in results:
+                        details = results["details"]
+                        logger.info(f"Job {details['uuid']} received.")
+                        idle_time = 0
+                    
+                        do_job(args, details)
+                else:
+                    logger.error(results)
+
+            except Exception as e:
+                logger.info("📡 Cannot reach FD API.")
+                tb = traceback.format_exc()
+                logger.error(tb)
+                pass
+
+        except requests.exceptions.ConnectionError as e:
+            # tb = traceback.format_exc()
+            # logger.error(tb)
+            logger.info("📡 Cannot reach A1111 API.  Maybe it is just starting or crashed?")
             pass
+        
         
         if run:
             poll_interval = args["poll_interval"]

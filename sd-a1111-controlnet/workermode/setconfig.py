@@ -10,8 +10,15 @@ try:
 except:
     config = {}
 
-# Set the desired value to True
+# Set the desired values
 config["control_net_allow_script_control"] = True
+config["sd_model_checkpoint"] = "v1-5-pruned-emaonly.ckpt"
+config["sd_checkpoint_hash"] = "cc6cb27103417325ff94f52b7a5d2dde45a7515b25c255d8e396c90014281516"
+config["samples_save"] = False
+config["grid_save"] = False
+config["do_not_add_watermark"] = True
+config["enable_pnginfo"] = False
+config["show_progressbar"] = False
 
 # Save the modified config file
 with open("/home/stable/stable-diffusion-webui/config.json", "w") as f:
