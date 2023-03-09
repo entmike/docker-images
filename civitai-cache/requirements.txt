@@ -1,3 +1,4 @@
 requests
 pymongo
 tqdm
+python-dotenv

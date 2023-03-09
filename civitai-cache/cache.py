@@ -2,7 +2,9 @@ import requests, os, json, traceback, hashlib
 from bson import json_util
 from pymongo import MongoClient
 from tqdm import tqdm  # tqdm is a package for progress bar
+from dotenv import load_dotenv
 
+load_dotenv()
 
 hash_sha256 = hashlib.sha256()
 
