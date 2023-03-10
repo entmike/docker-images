@@ -41,7 +41,8 @@ for model in models:
                         fileDirectory = f"models/{model['id']}/{version['id']}/{file['id']}"
                         fileName = f"{fileDirectory}/{file['name']}"
                         hashName = f"{fileDirectory}/{file['name']}.sha256"
-                        if os.path.isfile(fileName) and not os.path.isfile(hashName):
+                        badHashName = f"{fileDirectory}/{file['name']}.sha256.bad"
+                        if os.path.isfile(fileName) and not os.path.isfile(hashName) and not os.path.isfile(badHashName):
                             try:
                                 s = file['hashes']['SHA256'].lower()
                             except:
@@ -52,7 +53,10 @@ for model in models:
                                 print(f"Checking SHA256 hash...")
                                 h = sha256(fileName).lower()
                                 if s != h:
-                                    print(f"🛑 Hash {s} expected but got {h}.  Will need to re-download.")
+                                    print(f"🛑 Hash {s} expected but got {h}.  Will need to re-download.  Marking as bad hash.")
+                                    with open(badHashName, "w") as file:
+                                        # Write the hash to the file
+                                        file.write(h)
                                 else:
                                     print(f"✅ Hash good.  Saving to {hashName}")
                                     with open(hashName, "w") as file:
