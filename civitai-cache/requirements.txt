@@ -2,3 +2,8 @@ requests
 pymongo
 tqdm
 python-dotenv
+flask
+boto3
+blurhash
+Pillow
+gunicorn
