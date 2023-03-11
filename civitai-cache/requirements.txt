@@ -2,3 +2,5 @@ requests
 pymongo
 tqdm
 python-dotenv
+blurhash-python
+pillow
