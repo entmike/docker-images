@@ -1,0 +1,1 @@
+gunicorn -b 0.0.0.0:5000 --workers=15 --threads 2 --backlog 2048 --worker-connections 1000 host:app

@@ -1,12 +1,13 @@
 import requests, os, json, traceback, hashlib
 from bson import json_util
 from pymongo import MongoClient
-from tqdm import tqdm  # tqdm is a package for progress bar
+from tqdm import tqdm
 from dotenv import load_dotenv
 import blurhash
 from PIL import Image
 from typing import Dict, Tuple, Union
 from io import BytesIO
+import boto3, botocore
 
 load_dotenv()
 
@@ -18,10 +19,61 @@ MONGODB_DATABASE = os.getenv('MONGODB_DATABASE',"database")
 MODELS_COLLECTION = os.getenv('MODELS_COLLECTION',"models")
 CHECK_HASH = os.getenv('CHECK_HASH',False)
 IGNORE_LOCKS = os.getenv('IGNORE_LOCKS',False)
+S3_AWS_SERVER_PUBLIC_KEY = os.getenv('S3_AWS_SERVER_PUBLIC_KEY',None)
+S3_AWS_SERVER_SECRET_KEY = os.getenv('S3_AWS_SERVER_SECRET_KEY',None)
+S3_BUCKET = os.getenv('S3_BUCKET',None)
+S3_OVERWRITE = os.getenv('S3_OVERWRITE',False)
 
 client = MongoClient(MONGODB_CONNECTION)
 db = client[MONGODB_DATABASE]
 collection = db[MODELS_COLLECTION]
+
+if S3_BUCKET:
+    # Create a session with the credentials
+    session = boto3.Session(
+        aws_access_key_id=S3_AWS_SERVER_PUBLIC_KEY,
+        aws_secret_access_key=S3_AWS_SERVER_SECRET_KEY
+    )
+    # Use the session to create an S3 resource
+    s3 = session.resource('s3')
+
+def exists_s3(bucket_name, file_name):
+    # Check if the object exists
+    try:
+        s3.Object(bucket_name, file_name).load()
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == "404":
+            return False
+        else:
+            raise
+    else:
+        return True
+
+def upload_file_s3(file_name, bucket, object_name=None, extra_args=None):
+    """Upload a file to an S3 bucket
+
+    :param file_name: File to upload
+    :param bucket: Bucket to upload to
+    :param object_name: S3 object name. If not specified then file_name is used
+    :return: True if file was uploaded, else False
+    """
+
+    # If S3 object_name was not specified, use file_name
+    if object_name is None:
+        object_name = os.path.basename(file_name)
+
+    # Upload the file
+    s3_client = boto3.client("s3",
+        region_name = "us-east-1",
+        aws_access_key_id = S3_AWS_SERVER_PUBLIC_KEY,
+        aws_secret_access_key = S3_AWS_SERVER_SECRET_KEY)
+
+    try:
+        response = s3_client.upload_file(file_name, bucket, object_name, extra_args)
+    except Exception as e:
+        logger.error(e)
+        return False
+    return True
 
 def get_clamped_size(width: int, height: int, max_size: int, clamp_type: str = 'all') -> Tuple[int, int]:
     if clamp_type == 'all':
@@ -95,6 +147,7 @@ for model in models:
                     os.makedirs(imageDirectory, exist_ok=True)
                     with open(f"{imageDirectory}/images.json", "wb") as f:
                         f.write(json_util.dumps(version["images"]).encode('utf-8'))
+                    
                     for image in version["images"]:
                         url = image['url']
                         imageName = url.split("/")[-1]
@@ -170,6 +223,17 @@ for model in models:
                                     #         file.write(h)
                                 else:
                                     print(f"{lockFileName} detected.  Skipping download.")
+                        
+                        if S3_BUCKET != None:
+                            if not exists_s3(bucket_name = S3_BUCKET, file_name = imageFile) or S3_OVERWRITE:
+                                print("🌎 Uploading to S3...")
+                                upload_file_s3(imageFile, S3_BUCKET, object_name=imageFile, extra_args={"ContentType": "image/jpeg"})
+                            else:
+                                print("✅ File already in S3")
+                        # else:
+                        #     print("No S3 bucket configured")
+
+
     except:
         tb = traceback.format_exc()
         print(f"Could not save {model['id']}\n{tb}")
