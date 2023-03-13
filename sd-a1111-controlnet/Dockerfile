@@ -48,6 +48,10 @@ ADD workermode/workermode.sh /home/stable/stable-diffusion-webui
 ADD workermode/setconfig.py /home/stable/setconfig.py
 ADD workermode/supervisord.conf /etc/supervisor/conf.d/
 
+# Add watchdog files
+ADD start_watchdog.sh /start_watchdog.sh
+ADD watchdog/watchdog.py /home/stable/stable-diffusion-webui
+
 # Add welcome banner
 ADD welcome-banner.txt /home/stable/welcome-banner.txt
 RUN echo "cat ~/welcome-banner.txt" >> ~/.bashrc
