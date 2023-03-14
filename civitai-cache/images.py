@@ -8,6 +8,7 @@ from PIL import Image
 from typing import Dict, Tuple, Union
 from io import BytesIO
 import boto3, botocore
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -36,6 +37,15 @@ if S3_BUCKET:
     )
     # Use the session to create an S3 resource
     s3 = session.resource('s3')
+
+def is_file_older_than(file_path, hours):
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"The file '{file_path}' does not exist")
+
+    modified_time = os.path.getmtime(file_path)
+    file_age = datetime.now() - datetime.fromtimestamp(modified_time)
+
+    return file_age > timedelta(hours=hours)
 
 def exists_s3(bucket_name, file_name):
     # Check if the object exists
@@ -224,14 +234,15 @@ for model in models:
                                 else:
                                     print(f"{lockFileName} detected.  Skipping download.")
                         
-                        if S3_BUCKET != None:
-                            if not exists_s3(bucket_name = S3_BUCKET, file_name = imageFile) or S3_OVERWRITE:
-                                print("🌎 Uploading to S3...")
-                                upload_file_s3(imageFile, S3_BUCKET, object_name=imageFile, extra_args={"ContentType": "image/jpeg"})
-                            else:
-                                print("✅ File already in S3")
-                        # else:
-                        #     print("No S3 bucket configured")
+                        if not is_file_older_than(imageFile, 24):
+                            if S3_BUCKET != None:
+                                if not exists_s3(bucket_name = S3_BUCKET, file_name = imageFile) or S3_OVERWRITE:
+                                    print("🌎 Uploading to S3...")
+                                    upload_file_s3(imageFile, S3_BUCKET, object_name=imageFile, extra_args={"ContentType": "image/jpeg"})
+                                else:
+                                    print("✅ File already in S3")
+                            # else:
+                            #     print("No S3 bucket configured")
 
 
     except:

@@ -1,7 +1,8 @@
-import requests, os, time, traceback
+import requests, os, time, traceback, json
 from loguru import logger
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+import xmlrpc.client
 
 def loop(args):
     # Start bot loop
@@ -15,25 +16,36 @@ def loop(args):
             # Get A1111 Status
             progress = requests.get(
                 "http://localhost:7860/sdapi/v1/progress?skip_current_image=true",
-                headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
             ).json()
 
             # logger.info(progress)
 
             memory = requests.get(
                 "http://localhost:7860/sdapi/v1/memory",
-                headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
             ).json()
 
             # logger.info(memory)
-            
+            payload = {
+                "agent_id" : args["agent"],
+                "progress" : progress,
+                "memory" : memory
+            }
+            logger.info(f"Payload:\n{payload}")
+            if payload["memory"]["cuda"]["events"]["oom"] >= 3:
+                # Connect to the supervisord XML-RPC API
+                server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
+                logger.info("☠️ Restarting A1111, OOMs detected...")
+                result = server.supervisor.stopProcess('auto1111')
+                logger.info(result)
+                result = server.supervisor.startProcess('auto1111')
+                logger.info(result)
             try:
                 fd_results = requests.post(
                     fd_api_url,
-                    data={
-                        "progress" : progress,
-                        "memory" : memory
-                    }
+                    headers = {'Content-type': 'application/json'},
+                    data=json.dumps(payload)
                 ).json()
 
             except Exception as e:

@@ -34,6 +34,6 @@ else
     # Set ControlNet config
     python /home/stable/setconfig.py
     # Launch A1111
-    python launch.py --listen --no-half --xformers --enable-insecure-extension-access \
+    exec python launch.py --listen --no-half --xformers --enable-insecure-extension-access \
     --api --no-download-sd-model --api-log --enable-console-prompts
 fi
