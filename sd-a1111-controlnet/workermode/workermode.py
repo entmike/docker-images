@@ -20,6 +20,7 @@ import sys
 import importlib.util
 import shlex
 import platform
+import xmlrpc.client
 
 AGENTVERSION = "a1111-v2-controlnet"
 CONTROLNET_COMMIT = os.environ.get('CONTROLNET_COMMIT', "UNKNOWN")
@@ -38,13 +39,14 @@ def url2base64(url):
 
 
 
-def deliver(args, details, duration):
+def deliver(args, details, duration, log):
     sample_path = os.path.join(args['out'], f"{details['uuid']}.png")
     url = f"{args['api']}/v3/deliverorder"
     
     files = {
         "file": open(sample_path, "rb")
     }
+    logger.info(log)
     values = {
         "duration" : duration,
         "agent_id" : args['agent'],
@@ -52,7 +54,8 @@ def deliver(args, details, duration):
         "repo" : "a1111",
         "agent_version" : AGENTVERSION,
         "owner" : args['owner'],
-        "uuid" : details['uuid']
+        "uuid" : details['uuid'],
+        "log" : log
     }
     # Upload payload
     try:
@@ -82,9 +85,9 @@ def do_job(cliargs, details):
     # DEFAULTS
     args = {
         "sd_model_checkpoint" : "v1-5-pruned-emaonly.ckpt",
+        "other_model" : {},
         "parent_uuid" : "UNKNOWN",
         "tiling" : False,
-        "restore_faces" : False,
         "firstphase_width" : 0,
         "firstphase_height" : 0,
         "prompt" : "A lonely robot",
@@ -97,7 +100,12 @@ def do_job(cliargs, details):
         "offset_noise" : 0.0,
         "width" : 512,
         "height" : 512,
-        # Highres
+        "clip_skip" : 1,
+        # Face Restore Options
+        "restore_faces" : False,
+        "fr_model" : "CodeFormer",
+        "cf_weight" : 0.5,
+        # Highres Options
         "enable_hr" : False,
         "denoising_strength" : 0.75,
         "hr_scale" : 2,
@@ -131,7 +139,7 @@ def do_job(cliargs, details):
         args["height"] = params["width_height"][1]
 
     for param in [
-        "sd_model_checkpoint",
+        "sd_model_checkpoint","other_model","clip_skip","fr_model","cf_weight",
         "parent_uuid","prompt","negative_prompt","scale","offset_noise","steps","seed","restore_faces","tiling","sampler",
         # Upscale options
         "enable_hr","denoising_strength","hr_scale","hr_upscale",
@@ -192,24 +200,64 @@ def do_job(cliargs, details):
         logger.info(f"ℹ️ Prompt: {prompt}")
         logger.info(f"ℹ️ Negative Prompt: {negative_prompt}")
 
+        # Clear supervisord log
+        server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
+        logger.info("☠️ Clearing a1111 worker log")
+        # Clear the program log
+        server.supervisor.clearProcessLogs("auto1111")
+
         # Load SD model
-        logger.info(f"🤖 Loading model {args['sd_model_checkpoint']}...")
-        results = requests.post(
-            "http://localhost:7860/sdapi/v1/options",
-            headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
-            json={"sd_model_checkpoint":args["sd_model_checkpoint"]}
-        ).json()
-        
-        if "clip_skip" in args:
-            clip_skip = args['clip_skip']
-        else:
-            clip_skip = 1
+        if args['sd_model_checkpoint'] == "other":
+            om = args['other_model']
+            logger.info("🤖 Custom model detected.")
+            logger.info(om)
+            cdnurl = f"{cliargs['model_cdn']}/models/{om['model_id']}/{om['model_version']}/{om['model_file']}/{om['filename']}"
+            cdndir = f"/home/stable/stable-diffusion-webui/models/Stable-diffusion/civitai-cache"
+            os.makedirs(cdndir, exist_ok=True)
+            filetarget = f"{cdndir}/{om['SHA256'].lower()}.{om['filename'].split('.')[-1]}"
+            lockFileName = f"{filetarget}.lock"
+            if not os.path.isfile(filetarget):
+                if not os.path.isfile(lockFileName):
+                    with open(lockFileName, "w") as lockfile:
+                        lockfile.write("")
+                    logger.info(f"Downloading {filetarget} from {cdnurl}...")
+                    model = requests.get(cdnurl)
+                    response = requests.get(cdnurl)
+                    open(filetarget, "wb").write(response.content)
+                    logger.info(f"File downloaded.  Refreshing checkpoints in A1111...")
+                    if os.path.exists(lockFileName):
+                        os.remove(lockFileName)
+                    results = requests.post(
+                        "http://localhost:7860/sdapi/v1/refresh-checkpoints",
+                        headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
+                        json={"sd_model_checkpoint":args["sd_model_checkpoint"]}
+                    ).json()
+                else:
+                    while os.path.isfile(lockFileName):
+                        logger.info(f"Looks like the file is being downloaded.  Waiting for 5 seconds...")
+                        time.sleep(5)
             
-        logger.info(f"🤖 Setting CLIP Skip to {clip_skip}...")
+            args['sd_model_checkpoint'] = f"civitai-cache_{om['SHA256'].lower()}"
+        
+        a1111_config = {
+            "sd_model_checkpoint" : args["sd_model_checkpoint"],
+            "multiple_tqdm" : False
+        }
+
+        # if "clip_skip" in args:
+        #     a1111_config["CLIP_stop_at_last_layers"] = args['clip_skip']
+
+        if "fr_model" in args:
+            a1111_config['face_restoration_model'] = args['fr_model']
+
+        if "cf_weight" in args:
+            a1111_config['code_former_weight'] = args['cf_weight']
+
+        logger.info(f"🤖 Setting config {a1111_config}")
         results = requests.post(
             "http://localhost:7860/sdapi/v1/options",
             headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
-            json={"CLIP_stop_at_last_layers":clip_skip}
+            json=a1111_config
         ).json()
 
         if(args["img2img"]):
@@ -376,6 +424,9 @@ def do_job(cliargs, details):
                 json=payload
             ).json()
             end_time = time.time()
+            # Retrieve the entire program log content
+            server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
+            log = server.supervisor.readProcessStdoutLog("auto1111", 0, 0)
 
             # logger.info(results)
             images = results["images"]
@@ -392,14 +443,18 @@ def do_job(cliargs, details):
             # Save the stripped image
             image_without_metadata.save(sample_path)
             print('File written successfully.')
-            deliver(cliargs, details, duration)
+            deliver(cliargs, details, duration, log)
 
     except Exception as e:
         connected = True #TODO: what?
         if connected:
             tb = traceback.format_exc()
             logger.error(f"Bad job detected.\n\n{e}\n\n{tb}")
-            values = {"message": f"Job failed:\n\n{e}", "traceback": tb}
+            # Retrieve the entire program log content
+            server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
+            log = server.supervisor.readProcessStdoutLog("auto1111", 0, 0)
+            errlog = server.supervisor.readProcessStderrLog("auto1111", 0, 0)
+            values = {"message": f"Job failed:\n\n{e}", "traceback": tb, "log" : log, "errlog": errlog}
             requests.post(f"{cliargs['api']}/v3/reject/{cliargs['agent']}/{details['uuid']}", data=values)
         else:
             logger.error(f"Error.  Check your API host is running at that location.  Also check your own internet connectivity.  Exception:\n{tb}")
@@ -511,6 +566,7 @@ if __name__ == "__main__":
         "api" : os.environ.get('API_URL', ""),
         "agent" : os.environ.get('API_AGENT', ""),
         "owner" : os.environ.get('API_OWNER', ""),
+        "model_cdn" : os.environ.get('MODEL_CDN', ""),
         "out" : "/outdir",
         "poll_interval" : 5
     }

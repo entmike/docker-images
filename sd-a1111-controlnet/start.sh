@@ -35,5 +35,5 @@ else
     python /home/stable/setconfig.py
     # Launch A1111
     exec python launch.py --listen --no-half --xformers --enable-insecure-extension-access \
-    --api --no-download-sd-model --api-log --enable-console-prompts
+    --api --no-download-sd-model --enable-console-prompts
 fi

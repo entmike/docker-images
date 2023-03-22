@@ -1,17 +1,28 @@
-import requests, os
+import requests, os, json, datetime
 from pymongo import MongoClient, UpdateOne
 
 # set up a MongoDB client and database
 MONGODB_CONNECTION = os.getenv('MONGODB_CONNECTION',"mongodb://localhost:27017")
 MONGODB_DATABASE = os.getenv('MONGODB_DATABASE',"database")
 MODELS_COLLECTION = os.getenv('MODELS_COLLECTION',"models")
-CIVITAI_TOKEN = os.getenv('CIVITAI_TOKEN','')
-
-print(MONGODB_CONNECTION)
 
 client = MongoClient(MONGODB_CONNECTION)
 db = client[MONGODB_DATABASE]
 collection = db[MODELS_COLLECTION]
+
+# Back up previous model collection
+model_list = list(collection.find({}))
+backupDir = 'models/backups'
+os.makedirs(backupDir, exist_ok=True)
+# Get the current date and time
+now = datetime.datetime.now()
+# Format the timestamp as a string
+timestamp_str = now.strftime('%Y-%m-%d_%H-%M-%S')
+# Use the timestamp string as a directory name
+backup_name = f'backup_{timestamp_str}'
+print(f"Backing up '{MODELS_COLLECTION}' to '{backup_name}'...")
+with open(f'{backupDir}/{backup_name}.json', 'w') as f:
+    json.dump(model_list, f, default=str)
 
 # loop over pages of the API endpoint and store the results in MongoDB
 page = 1

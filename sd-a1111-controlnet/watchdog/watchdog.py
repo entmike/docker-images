@@ -52,6 +52,7 @@ def loop(args):
                 logger.info("📡 Cannot reach FD API.")
                 tb = traceback.format_exc()
                 logger.error(tb)
+                time.sleep(poll_interval)
                 pass
 
             
