@@ -130,6 +130,7 @@ def do_job(cliargs, details):
         "controlnet_processor_res": 512,
         "controlnet_threshold_a": 100,
         "controlnet_threshold_b": 200,
+        "alwayson_scripts" : {}
     }
 
     params = details["params"]
@@ -216,26 +217,32 @@ def do_job(cliargs, details):
             os.makedirs(cdndir, exist_ok=True)
             filetarget = f"{cdndir}/{om['SHA256'].lower()}.{om['filename'].split('.')[-1]}"
             lockFileName = f"{filetarget}.lock"
+            
+            # Take no action until lock file is gone
+            while os.path.isfile(lockFileName):
+                logger.info(f"Looks like the file is being downloaded.  Waiting for 5 seconds...")
+                time.sleep(5)
+            
             if not os.path.isfile(filetarget):
                 if not os.path.isfile(lockFileName):
                     with open(lockFileName, "w") as lockfile:
                         lockfile.write("")
-                    logger.info(f"Downloading {filetarget} from {cdnurl}...")
-                    model = requests.get(cdnurl)
-                    response = requests.get(cdnurl)
-                    open(filetarget, "wb").write(response.content)
-                    logger.info(f"File downloaded.  Refreshing checkpoints in A1111...")
+                    try:
+                        logger.info(f"Downloading {filetarget} from {cdnurl}...")
+                        model = requests.get(cdnurl)
+                        response = requests.get(cdnurl)
+                        open(filetarget, "wb").write(response.content)
+                        logger.info(f"File downloaded.  Refreshing checkpoints in A1111...")
+                        results = requests.post(
+                        "http://localhost:7860/sdapi/v1/refresh-checkpoints",
+                            headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
+                            json={"sd_model_checkpoint":args["sd_model_checkpoint"]}
+                        ).json()
+                    except:
+                        pass
+
                     if os.path.exists(lockFileName):
                         os.remove(lockFileName)
-                    results = requests.post(
-                        "http://localhost:7860/sdapi/v1/refresh-checkpoints",
-                        headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
-                        json={"sd_model_checkpoint":args["sd_model_checkpoint"]}
-                    ).json()
-                else:
-                    while os.path.isfile(lockFileName):
-                        logger.info(f"Looks like the file is being downloaded.  Waiting for 5 seconds...")
-                        time.sleep(5)
             
             args['sd_model_checkpoint'] = f"civitai-cache_{om['SHA256'].lower()}"
         
@@ -272,6 +279,10 @@ def do_job(cliargs, details):
             else:
                 logger.info(f"{initPath} found in tmp dir")
             
+            # Retrieve the entire program log content
+            server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
+            log = server.supervisor.readProcessStdoutLog("auto1111", 0, 0)
+            
             image = Image.open(initPath)
             
             # os.unlink(initPath) # Maybe an agent pref later or a cleanup job.
@@ -279,12 +290,53 @@ def do_job(cliargs, details):
             for i, image in enumerate(processed.images):
                 sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
                 image.save(sample_path)
-                deliver(cliargs, details, duration)
+                deliver(cliargs, details, duration, log)
 
+        
+        logger.info(f"🔮 txt2img Job: \n{args}")
+        payload = {
+            # Highres
+            "enable_hr": args["enable_hr"],
+            "denoising_strength": args["denoising_strength"],
+            "hr_scale": args["hr_scale"],
+            "hr_upscaler": args["hr_upscale"],
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "styles": [],
+            "seed": args["seed"],
+            "subseed": 0,
+            "subseed_strength": 0,
+            "batch_size": 1,
+            "n_iter": args["n_iter"],
+            "steps": args["steps"],
+            "cfg_scale": args["scale"],
+            "width": args["width"],
+            "height": args["height"],
+            "restore_faces": args["restore_faces"],
+            "tiling": args["tiling"],
+            "sampler_index": args["sampler"],
+            "sampler_name": args["sampler"],
+            # TODO: unknown
+            "firstphase_width": 0,
+            "firstphase_height": 0,
+            "hr_second_pass_steps": 0,
+            "hr_resize_x": 0,
+            "hr_resize_y": 0,
+            "seed_resize_from_h": -1,
+            "seed_resize_from_w": -1,
+            "eta": 0,
+            "s_churn": 0,
+            "s_tmax": 0,
+            "s_tmin": 0,
+            "s_noise": 1,
+            "override_settings": {},
+            "override_settings_restore_afterwards": True
+            # "script_args": [],
+            # "script_name": "",
+        }
+        
         if args["controlnet_enabled"] == True:
-            # ControlNet txt2img API Call here
-            # TODO: Allow uploaded/external images
-            logger.info(f"🔮 ControlNet Job: \n{args}")
+            # TODO: Allow uploaded images
             if args["controlnet_ref_img_type"] == "piece":
                 imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
             if args["controlnet_ref_img_type"] == "url":
@@ -292,6 +344,7 @@ def do_job(cliargs, details):
 
             logger.info(f"🌍 Downloading image for ControlNet: {imgurl}")
             b64=url2base64(imgurl)
+
             lowvram = False
             gpu = list(nvsmi.get_gpus())[0]
             gpu_mem = gpu.__dict__["mem_total"]
@@ -301,149 +354,60 @@ def do_job(cliargs, details):
             # if gpu_mem < 20000:
             #     lowvram = True
 
-            logger.info(f"💻 Low VRAM param set to {lowvram}")
-            payload={
-                "sd_model_checkpoint" : args["sd_model_checkpoint"],
-                "prompt": prompt,
-                "negative_prompt": negative_prompt,
-                "seed": args["seed"],
-                "subseed": 0,
-                "subseed_strength": 0,
-                "sampler_index": args["sampler"],
-                "batch_size": 1,
-                "n_iter": args["n_iter"],
-                "steps": args["steps"],
-                "cfg_scale": args["scale"],
-                "width":args["width"],
-                "height":args["height"],
-                "restore_faces": args["restore_faces"],
-                # ControlNet 
-                "controlnet_units": [
-                    {
-                    "input_image": b64,
-                    "mask": "",
-                    "module": args["controlnet_module"],
-                    "model": args["controlnet_model"],
-                    "weight": args["controlnet_weight"],
-                    "resize_mode": "Scale to Fit (Inner Fit)",
-                    "lowvram": lowvram,
-                    "processor_res": 512,
-                    "threshold_a": 100,
-                    "threshold_b": 200,
-                    "guidance": args["controlnet_guidance"],
-                    "guidance_start": 0,
-                    "guidance_end": 1,
-                    "guessmode": args["controlnet_guessmode"]
-                    }
-                ],
-                # Highres
-                "enable_hr": args["enable_hr"],
-                "denoising_strength": args["denoising_strength"],
-                "hr_scale": args["hr_scale"],
-                "hr_upscale": args["hr_upscale"],
-                
+            payload["alwayson_scripts"] = {
+                "controlnet" : {
+                    "args" : [
+                        {
+                            "input_image": b64,
+                            "mask": "",
+                            "module": args["controlnet_module"],
+                            "model": args["controlnet_model"],
+                            "weight": args["controlnet_weight"],
+                            "resize_mode": "Scale to Fit (Inner Fit)",
+                            "lowvram": lowvram,
+                            "processor_res": 512,
+                            "threshold_a": 100,
+                            "threshold_b": 200,
+                            "guidance": args["controlnet_guidance"],
+                            "guidance_start": 0,
+                            "guidance_end": 1,
+                            "guessmode": args["controlnet_guessmode"]
+                        }
+                    ]
+                }
             }
-            # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
-            # Grab start timestamp
-            start_time = time.time()
-            results = requests.post(
-                "http://localhost:7860/controlnet/txt2img",
-                headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
-                json=payload
-            ).json()
-            end_time = time.time()
-
-            # logger.info(results)
-            images = results["images"]
-            duration = end_time - start_time
-            logger.info(f"{len(images)} images returned.")
-            image=images[0]
-            sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
-            image_bytes = base64.b64decode(image)
-            image = Image.open(BytesIO(image_bytes))
-            # Remove all EXIF and other metadata
-            data = list(image.getdata())
-            image_without_metadata = Image.new(image.mode, image.size)
-            image_without_metadata.putdata(data)
-            # Save the stripped image
-            image_without_metadata.save(sample_path)
-            print('File written successfully.')
-            deliver(cliargs, details, duration)
+            logger.info(f"🔮 ControlNet Enabled: \n{args}")
+            
+        # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
+        # Grab start timestamp
+        start_time = time.time()
         
-        if args["controlnet_enabled"] == False:
-            # txt2img API Call here
-            logger.info(f"🔮 txt2img Job: \n{args}")
-            payload = {
-                # Highres
-                "enable_hr": args["enable_hr"],
-                "denoising_strength": args["denoising_strength"],
-                "hr_scale": args["hr_scale"],
-                "hr_upscaler": args["hr_upscale"],
-                "prompt": prompt,
-                "negative_prompt": negative_prompt,
-                "styles": [],
-                "seed": args["seed"],
-                "subseed": 0,
-                "subseed_strength": 0,
-                "batch_size": 1,
-                "n_iter": args["n_iter"],
-                "steps": args["steps"],
-                "cfg_scale": args["scale"],
-                "width": args["width"],
-                "height": args["height"],
-                "restore_faces": args["restore_faces"],
-                "tiling": args["tiling"],
-                "sampler_index": args["sampler"],
-                "sampler_name": args["sampler"],
-                # TODO: unknown
-                "firstphase_width": 0,
-                "firstphase_height": 0,
-                "hr_second_pass_steps": 0,
-                "hr_resize_x": 0,
-                "hr_resize_y": 0,
-                "seed_resize_from_h": -1,
-                "seed_resize_from_w": -1,
-                "eta": 0,
-                "s_churn": 0,
-                "s_tmax": 0,
-                "s_tmin": 0,
-                "s_noise": 1,
-                "override_settings": {},
-                "override_settings_restore_afterwards": True
-                # "script_args": [],
-                # "script_name": "",
-            }
-            
-            # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
-            # Grab start timestamp
-            start_time = time.time()
-            
-            results = requests.post(
-                "http://localhost:7860/sdapi/v1/txt2img",
-                headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
-                json=payload
-            ).json()
-            end_time = time.time()
-            # Retrieve the entire program log content
-            server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
-            log = server.supervisor.readProcessStdoutLog("auto1111", 0, 0)
+        results = requests.post(
+            "http://localhost:7860/sdapi/v1/txt2img",
+            headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
+            json=payload
+        ).json()
+        end_time = time.time()
+        # Retrieve the entire program log content
+        server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
+        log = server.supervisor.readProcessStdoutLog("auto1111", 0, 0)
 
-            # logger.info(results)
-            images = results["images"]
-            duration = end_time - start_time
-            logger.info(f"{len(images)} images returned.")
-            image=images[0]
-            sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
-            image_bytes = base64.b64decode(image)
-            image = Image.open(BytesIO(image_bytes))
-            # Remove all EXIF and other metadata
-            data = list(image.getdata())
-            image_without_metadata = Image.new(image.mode, image.size)
-            image_without_metadata.putdata(data)
-            # Save the stripped image
-            image_without_metadata.save(sample_path)
-            print('File written successfully.')
-            deliver(cliargs, details, duration, log)
+        # logger.info(results)
+        images = results["images"]
+        duration = end_time - start_time
+        logger.info(f"{len(images)} images returned.")
+        image=images[0]
+        sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
+        image_bytes = base64.b64decode(image)
+        image = Image.open(BytesIO(image_bytes))
+        # Remove all EXIF and other metadata
+        data = list(image.getdata())
+        image_without_metadata = Image.new(image.mode, image.size)
+        image_without_metadata.putdata(data)
+        # Save the stripped image
+        image_without_metadata.save(sample_path)
+        print('File written successfully.')
+        deliver(cliargs, details, duration, log)
 
     except Exception as e:
         connected = True #TODO: what?
