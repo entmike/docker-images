@@ -34,7 +34,7 @@ def sha256(filename):
     # Get the hexadecimal representation of the hash
     return hash_sha256.hexdigest()
 
-models = list(collection.find({}))
+models = list(collection.find({}).sort('id',-1))
 
 # Make a discard directory for redundant mode formats (.ckpt)
 os.makedirs(f"models/discard", exist_ok=True)
@@ -88,8 +88,8 @@ for model in models:
                                             print(f"Hash for {fileName} already checked.")
                                         else:
                                             print(f"Checking SHA256 hash...")
-                                            h = sha256(fileName).lower()
                                             s = file['hashes']['SHA256'].lower()
+                                            h = sha256(fileName).lower()
                                             if s != h:
                                                 print(f"🛑 Hash {s} expected but got {h}.  Will redownload...")
                                                 download = True

@@ -41,11 +41,15 @@ def url2base64(url):
 
 def deliver(args, details, duration, log):
     sample_path = os.path.join(args['out'], f"{details['uuid']}.png")
+    ref_path = os.path.join(args['out'], f"{details['uuid']}_ref.png")
     url = f"{args['api']}/v3/deliverorder"
     
     files = {
         "file": open(sample_path, "rb")
     }
+    if os.path.exists(ref_path):
+        files["ref_file"] = open(ref_path, "rb")
+
     logger.info(log)
     values = {
         "duration" : duration,
@@ -75,6 +79,9 @@ def deliver(args, details, duration, log):
         try:
             # Delete sample
             os.unlink(sample_path)
+            if os.path.exists(ref_path):
+                os.unlink(ref_path)
+                
         except:
             logger.error(f"Error when trying to clean up files for {details['uuid']}")
             import traceback
@@ -377,7 +384,7 @@ def do_job(cliargs, details):
                 }
             }
             logger.info(f"🔮 ControlNet Enabled: \n{args}")
-            
+
         # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
         # Grab start timestamp
         start_time = time.time()
@@ -407,6 +414,20 @@ def do_job(cliargs, details):
         # Save the stripped image
         image_without_metadata.save(sample_path)
         print('File written successfully.')
+
+        if len(images) > 1:
+            ref_image = images[1]
+            reference_image_path = os.path.join(cliargs['out'], f"{details['uuid']}_ref.png")
+            image_bytes = base64.b64decode(ref_image)
+            image = Image.open(BytesIO(image_bytes))
+            # Remove all EXIF and other metadata
+            data = list(image.getdata())
+            image_without_metadata = Image.new(image.mode, image.size)
+            image_without_metadata.putdata(data)
+            # Save the stripped image
+            image_without_metadata.save(reference_image_path)
+            print('Reference image written successfully.')
+
         deliver(cliargs, details, duration, log)
 
     except Exception as e:
