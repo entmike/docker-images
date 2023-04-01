@@ -32,7 +32,7 @@ def loop(args):
                 "progress" : progress,
                 "memory" : memory
             }
-            logger.info(f"Payload:\n{payload}")
+            # logger.info(f"Payload:\n{payload}")
             if payload["memory"]["cuda"]["events"]["oom"] >= 3:
                 # Connect to the supervisord XML-RPC API
                 server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
@@ -57,13 +57,14 @@ def loop(args):
 
             
             poll_interval = 3
-            logger.info(f"🐶 Sleeping for {poll_interval} seconds...")
+            # logger.info(f"🐶 Sleeping for {poll_interval} seconds...")
             time.sleep(poll_interval)
 
         except requests.exceptions.ConnectionError as e:
             # tb = traceback.format_exc()
             # logger.error(tb)
             logger.info("📡 Cannot reach A1111 API.  Maybe it is just starting or crashed?")
+            time.sleep(15)
             pass
         
         except:

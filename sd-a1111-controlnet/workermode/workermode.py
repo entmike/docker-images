@@ -128,7 +128,8 @@ def do_job(cliargs, details):
         "controlnet_module": "canny",
         "controlnet_model": "control_sd15_canny [fef5e48e]",
         "controlnet_weight": 1,
-        "controlnet_guidance": 1,
+        "controlnet_guidance_start": 0,
+        "controlnet_guidance_end": 1,
         # TODO?:
         "controlnet_input_image": [],       # Populated later
         "controlnet_mask": [],
@@ -153,7 +154,8 @@ def do_job(cliargs, details):
         "enable_hr","denoising_strength","hr_scale","hr_upscale",
         # ControlNet options
         "controlnet_enabled","controlnet_ref_img_type","controlnet_ref_img_url","controlnet_guessmode","controlnet_module",
-        "controlnet_model","controlnet_weight","controlnet_guidance","controlnet_resizemode",
+        "controlnet_model","controlnet_weight","controlnet_guidance_start","controlnet_guidance_end","controlnet_resizemode",
+        "controlnet_threshold_a","controlnet_threshold_b"
         "firstphase_width","firstphase_height",
         # img2img options
         "img2img","img2img_denoising_strength","img2img_source_uuid",
@@ -372,12 +374,11 @@ def do_job(cliargs, details):
                             "weight": args["controlnet_weight"],
                             "resize_mode": "Scale to Fit (Inner Fit)",
                             "lowvram": lowvram,
-                            "processor_res": 512,
-                            "threshold_a": 100,
-                            "threshold_b": 200,
-                            "guidance": args["controlnet_guidance"],
-                            "guidance_start": 0,
-                            "guidance_end": 1,
+                            "processor_res": args["controlnet_processor_res"],
+                            "threshold_a": args["controlnet_threshold_a"],
+                            "threshold_b": args["controlnet_threshold_b"],
+                            "guidance_start": args["controlnet_guidance_start"],
+                            "guidance_end": args["controlnet_guidance_end"],
                             "guessmode": args["controlnet_guessmode"]
                         }
                     ]
@@ -402,7 +403,7 @@ def do_job(cliargs, details):
         # logger.info(results)
         images = results["images"]
         duration = end_time - start_time
-        logger.info(f"{len(images)} images returned.")
+        logger.info(f"🏞️ {len(images)} images returned.")
         image=images[0]
         sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
         image_bytes = base64.b64decode(image)
@@ -413,7 +414,7 @@ def do_job(cliargs, details):
         image_without_metadata.putdata(data)
         # Save the stripped image
         image_without_metadata.save(sample_path)
-        print('File written successfully.')
+        logger.info('File written successfully.')
 
         if len(images) > 1:
             ref_image = images[1]
