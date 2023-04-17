@@ -12,6 +12,7 @@ except:
 
 # Set the desired values
 config["control_net_allow_script_control"] = True
+config["control_net_models_path"] = "/home/stable/stable-diffusion-webui/models/cn"
 config["sd_model_checkpoint"] = "v1-5-pruned-emaonly.ckpt"
 config["sd_checkpoint_hash"] = "cc6cb27103417325ff94f52b7a5d2dde45a7515b25c255d8e396c90014281516"
 config["samples_save"] = False

@@ -108,6 +108,12 @@ def do_job(cliargs, details):
         "width" : 512,
         "height" : 512,
         "clip_skip" : 1,
+        # LORA Options
+        "loras_enabled" : False,
+        "loras" : [],
+        # TI Options
+        "ti_enabled" : False,
+        "embeddings" : [],
         # Face Restore Options
         "restore_faces" : False,
         "fr_model" : "CodeFormer",
@@ -150,6 +156,10 @@ def do_job(cliargs, details):
     for param in [
         "sd_model_checkpoint","other_model","clip_skip","fr_model","cf_weight",
         "parent_uuid","prompt","negative_prompt","scale","offset_noise","steps","seed","restore_faces","tiling","sampler",
+        # LORA Options
+        "loras_enabled","loras",
+        # TI Options
+        "ti_enabled","embeddings",
         # Upscale options
         "enable_hr","denoising_strength","hr_scale","hr_upscale",
         # ControlNet options
@@ -196,16 +206,32 @@ def do_job(cliargs, details):
     #         tb = traceback.format_exc()
     #         logger.error(f"{e}\n\n{tb}")
     try:
-        prompt = args["prompt"]
+        prompt = args["prompt"].lower()
+        negative_prompt = args["negative_prompt"].lower()
+
+        # Add <lora: ... > tags
+        if "loras_enabled" in args:
+            if args["loras_enabled"] == True:
+                for lora in args["loras"]:
+                    model = lora["model"]
+                    weight = lora["weight"]
+                    loraname = f"{model['SHA256'].lower()}"
+                    prompt = f"{prompt}, <lora:{loraname}:{weight}>"
+
+        # Add embedding tokens
+        if "ti_enabled" in args:
+            if args["ti_enabled"] == True:
+                for embedding in args["embeddings"]:
+                    model = embedding["model"]
+                    weight = embedding["weight"]
+                    embeddingname = f"{model['SHA256'].lower()}"
+                    filename = model['filename'].lower()
+                    prompt = prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
+                    negative_prompt = negative_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
+
         if "offset_noise" in args:
             if args["offset_noise"] > 0.0 or args["offset_noise"] < 0.0:
                 prompt = f"{prompt}, <lora:epiNoiseoffset_v2:{args['offset_noise']}>"
-    #     prompt = prompt.replace("<","~~")
-    #     prompt = prompt.replace(">","~~")
-    # 
-        negative_prompt = args["negative_prompt"]
-    #     negative_prompt = negative_prompt.replace("<","~~")
-    #     negative_prompt = negative_prompt.replace(">","~~")
 
         logger.info(f"ℹ️ Prompt: {prompt}")
         logger.info(f"ℹ️ Negative Prompt: {negative_prompt}")
@@ -215,6 +241,69 @@ def do_job(cliargs, details):
         logger.info("☠️ Clearing a1111 worker log")
         # Clear the program log
         server.supervisor.clearProcessLogs("auto1111")
+        # LORA DL
+        if "loras_enabled" in args and args["loras_enabled"] == True:
+            # Download LORAs.
+            for lora_item in args["loras"]:
+                lora = lora_item["model"]
+                logger.info(lora)
+                # logger.info(f"🌎 Need to DL Lora:\n{lora}")
+                cdnurl = f"{cliargs['model_cdn']}/models/{lora['model_id']}/{lora['model_version']}/{lora['model_file']}/{lora['filename']}"
+                cdndir = f"/home/stable/stable-diffusion-webui/models/Lora/civitai-cache"
+                os.makedirs(cdndir, exist_ok=True)
+                filetarget = f"{cdndir}/{lora['SHA256'].lower()}.{lora['filename'].split('.')[-1]}"
+                lockFileName = f"{filetarget}.lock"
+                # Take no action until lock file is gone
+                while os.path.isfile(lockFileName):
+                    logger.info(f"Looks like the LORA is being downloaded.  Waiting for 5 seconds...")
+                    time.sleep(5)
+                if not os.path.isfile(filetarget):
+                    if not os.path.isfile(lockFileName):
+                        with open(lockFileName, "w") as lockfile:
+                            lockfile.write("")
+                        try:
+                            logger.info(f"Downloading {filetarget} from {cdnurl}...")
+                            model = requests.get(cdnurl)
+                            response = requests.get(cdnurl)
+                            open(filetarget, "wb").write(response.content)
+                            logger.info(f"LORA downloaded.")
+                        except:
+                            pass
+
+                    if os.path.exists(lockFileName):
+                        os.remove(lockFileName)
+
+        # Textual Inversion DL
+        if "ti_enabled" in args and args["ti_enabled"] == True:
+            # Download Embeddings.
+            for embedding_item in args["embeddings"]:
+                embedding = embedding_item["model"]
+                logger.info(embedding)
+                # logger.info(f"🌎 Need to DL Embedding:\n{embedding}")
+                cdnurl = f"{cliargs['model_cdn']}/models/{embedding['model_id']}/{embedding['model_version']}/{embedding['model_file']}/{embedding['filename']}"
+                cdndir = f"/home/stable/stable-diffusion-webui/embeddings"
+                os.makedirs(cdndir, exist_ok=True)
+                filetarget = f"{cdndir}/{embedding['SHA256'].lower()}.{embedding['filename'].split('.')[-1]}"
+                lockFileName = f"{filetarget}.lock"
+                # Take no action until lock file is gone
+                while os.path.isfile(lockFileName):
+                    logger.info(f"Looks like the Embedding is being downloaded.  Waiting for 5 seconds...")
+                    time.sleep(5)
+                if not os.path.isfile(filetarget):
+                    if not os.path.isfile(lockFileName):
+                        with open(lockFileName, "w") as lockfile:
+                            lockfile.write("")
+                        try:
+                            logger.info(f"Downloading {filetarget} from {cdnurl}...")
+                            model = requests.get(cdnurl)
+                            response = requests.get(cdnurl)
+                            open(filetarget, "wb").write(response.content)
+                            logger.info(f"Embedding downloaded.")
+                        except:
+                            pass
+
+                    if os.path.exists(lockFileName):
+                        os.remove(lockFileName)
 
         # Load SD model
         if args['sd_model_checkpoint'] == "other":
@@ -254,7 +343,8 @@ def do_job(cliargs, details):
                         os.remove(lockFileName)
             
             args['sd_model_checkpoint'] = f"civitai-cache_{om['SHA256'].lower()}"
-        
+
+                
         a1111_config = {
             "sd_model_checkpoint" : args["sd_model_checkpoint"],
             "multiple_tqdm" : False
@@ -363,6 +453,10 @@ def do_job(cliargs, details):
             # if gpu_mem < 20000:
             #     lowvram = True
 
+            # RESIZE = "Just Resize"
+            # INNER_FIT = "Inner Fit (Scale to Fit)"
+            # OUTER_FIT = "Outer Fit (Shrink to Fit)"
+
             payload["alwayson_scripts"] = {
                 "controlnet" : {
                     "args" : [
@@ -372,7 +466,8 @@ def do_job(cliargs, details):
                             "module": args["controlnet_module"],
                             "model": args["controlnet_model"],
                             "weight": args["controlnet_weight"],
-                            "resize_mode": "Scale to Fit (Inner Fit)",
+                            # "resize_mode": "Scale to Fit (Inner Fit)",
+                            "resize_mode" : "Inner Fit (Scale to Fit)",
                             "lowvram": lowvram,
                             "processor_res": args["controlnet_processor_res"],
                             "threshold_a": args["controlnet_threshold_a"],
