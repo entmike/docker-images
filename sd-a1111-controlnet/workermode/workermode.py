@@ -248,7 +248,8 @@ def do_job(cliargs, details):
                 lora = lora_item["model"]
                 logger.info(lora)
                 # logger.info(f"🌎 Need to DL Lora:\n{lora}")
-                cdnurl = f"{cliargs['model_cdn']}/models/{lora['model_id']}/{lora['model_version']}/{lora['model_file']}/{lora['filename']}"
+                # cdnurl = f"{cliargs['model_cdn']}/models/{lora['model_id']}/{lora['model_version']}/{lora['model_file']}/{lora['filename']}"
+                cdnurl = f"{cliargs['model_cdn']}/models/files/{lora['SHA256'].lower()}"
                 cdndir = f"/home/stable/stable-diffusion-webui/models/Lora/civitai-cache"
                 os.makedirs(cdndir, exist_ok=True)
                 filetarget = f"{cdndir}/{lora['SHA256'].lower()}.{lora['filename'].split('.')[-1]}"
@@ -280,7 +281,8 @@ def do_job(cliargs, details):
                 embedding = embedding_item["model"]
                 logger.info(embedding)
                 # logger.info(f"🌎 Need to DL Embedding:\n{embedding}")
-                cdnurl = f"{cliargs['model_cdn']}/models/{embedding['model_id']}/{embedding['model_version']}/{embedding['model_file']}/{embedding['filename']}"
+                # cdnurl = f"{cliargs['model_cdn']}/models/{embedding['model_id']}/{embedding['model_version']}/{embedding['model_file']}/{embedding['filename']}"
+                cdnurl = f"{cliargs['model_cdn']}/models/files/{embedding['SHA256'].lower()}"
                 cdndir = f"/home/stable/stable-diffusion-webui/embeddings"
                 os.makedirs(cdndir, exist_ok=True)
                 filetarget = f"{cdndir}/{embedding['SHA256'].lower()}.{embedding['filename'].split('.')[-1]}"
@@ -310,7 +312,8 @@ def do_job(cliargs, details):
             om = args['other_model']
             logger.info("🤖 Custom model detected.")
             logger.info(om)
-            cdnurl = f"{cliargs['model_cdn']}/models/{om['model_id']}/{om['model_version']}/{om['model_file']}/{om['filename']}"
+            # cdnurl = f"{cliargs['model_cdn']}/models/{om['model_id']}/{om['model_version']}/{om['model_file']}/{om['filename']}"
+            cdnurl = f"{cliargs['model_cdn']}/models/files/{om['SHA256'].lower()}"
             cdndir = f"/home/stable/stable-diffusion-webui/models/Stable-diffusion/civitai-cache"
             os.makedirs(cdndir, exist_ok=True)
             filetarget = f"{cdndir}/{om['SHA256'].lower()}.{om['filename'].split('.')[-1]}"
