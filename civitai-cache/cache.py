@@ -51,8 +51,10 @@ for model in models:
                     json.dump(json.loads(json_util.dumps(version)), f, indent=4)
                 if "files" in version:
                     for file in version["files"]:
-                        fileDirectory = f"models/{model['id']}/{version['id']}/{file['id']}"
-                        fileName = f"{fileDirectory}/{file['name']}"
+                        # fileDirectory = f"models/{model['id']}/{version['id']}/{file['id']}"
+                        modelDirectory = f"models/{model['id']}/{version['id']}/{file['id']}"
+                        fileDirectory = f"models/files"
+                        fileName = f"{fileDirectory}/{file['hashes']['SHA256'].lower()}"
                         isPrimary = False
                         skip = False
 
@@ -76,10 +78,10 @@ for model in models:
                                 os.rename(fileName, discardFileName)
 
                         else:
-                            os.makedirs(fileDirectory, exist_ok=True)
-                            with open(f"{fileDirectory}/file.json", "wb") as f:
+                            os.makedirs(modelDirectory, exist_ok=True)
+                            with open(f"{modelDirectory}/file.json", "wb") as f:
                                 f.write(json_util.dumps(file).encode('utf-8'))
-                                hashFileName = f"{fileDirectory}/{file['name']}.sha256"
+                                hashFileName = f"{fileName}.sha256"
                                 download = False
                                 if os.path.isfile(fileName):
                                     print(f"File {fileName} already exists.")
@@ -102,7 +104,7 @@ for model in models:
                                     download = True
                                 
                                 if download:
-                                    lockFileName = f"{fileDirectory}/{file['name']}.lock"
+                                    lockFileName = f"{fileName}.lock"
                                     if not os.path.exists(lockFileName):
                                         print(f"Downloading {fileName}")
 

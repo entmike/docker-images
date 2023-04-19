@@ -92,6 +92,7 @@ def do_job(cliargs, details):
     # DEFAULTS
     args = {
         "sd_model_checkpoint" : "v1-5-pruned-emaonly.ckpt",
+        "mode" : "txt2img",
         "other_model" : {},
         "parent_uuid" : "UNKNOWN",
         "tiling" : False,
@@ -124,9 +125,10 @@ def do_job(cliargs, details):
         "hr_scale" : 2,
         "hr_upscale" : "None",
         # img2img
-        "img2img" : False,
+        "img2img_ref_img_type" : "piece",
+        "img2img_ref_img_url" : "",
+        "img2img_resize_mode" : 0,
         "img2img_denoising_strength" : 0.75,
-        "img2img_source_uuid" : "UNKNOWN",
         # controlnet
         "controlnet_enabled" : False,
         "controlnet_ref_img_type" : "piece",
@@ -154,7 +156,7 @@ def do_job(cliargs, details):
         args["height"] = params["width_height"][1]
 
     for param in [
-        "sd_model_checkpoint","other_model","clip_skip","fr_model","cf_weight",
+        "mode","sd_model_checkpoint","other_model","clip_skip","fr_model","cf_weight",
         "parent_uuid","prompt","negative_prompt","scale","offset_noise","steps","seed","restore_faces","tiling","sampler",
         # LORA Options
         "loras_enabled","loras",
@@ -162,13 +164,13 @@ def do_job(cliargs, details):
         "ti_enabled","embeddings",
         # Upscale options
         "enable_hr","denoising_strength","hr_scale","hr_upscale",
+        # img2img options
+        "img2img_ref_img_type", "img2img_ref_img_url", "img2img_resize_mode", "img2img_denoising_strength",
         # ControlNet options
         "controlnet_enabled","controlnet_ref_img_type","controlnet_ref_img_url","controlnet_guessmode","controlnet_module",
         "controlnet_model","controlnet_weight","controlnet_guidance_start","controlnet_guidance_end","controlnet_resizemode",
         "controlnet_threshold_a","controlnet_threshold_b"
-        "firstphase_width","firstphase_height",
-        # img2img options
-        "img2img","img2img_denoising_strength","img2img_source_uuid",
+        "firstphase_width","firstphase_height"
     ]:
         # If parameter is in jobparams, override args default.
         if param in params:
@@ -368,75 +370,119 @@ def do_job(cliargs, details):
             headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
             json=a1111_config
         ).json()
-
-        if(args["img2img"]):
-
-            initUrl = f"https://images.feverdreams.app/images/{args['img2img_source_uuid']}.png"
-            initPath = os.path.join("/tmp",f"{args['img2img_source_uuid']}.png")
-            # Download init if required
-            if not os.path.exists(initPath):
-                logger.info(f"🌍 Downloading image {initUrl} to {initPath}...")
-                response = requests.get(initUrl)
-                open(initPath, "wb").write(response.content)
-            else:
-                logger.info(f"{initPath} found in tmp dir")
-            
-            # Retrieve the entire program log content
-            server = xmlrpc.client.ServerProxy('http://localhost:9001/RPC2')
-            log = server.supervisor.readProcessStdoutLog("auto1111", 0, 0)
-            
-            image = Image.open(initPath)
-            
-            # os.unlink(initPath) # Maybe an agent pref later or a cleanup job.
-
-            for i, image in enumerate(processed.images):
-                sample_path = os.path.join(cliargs['out'], f"{details['uuid']}.png")
-                image.save(sample_path)
-                deliver(cliargs, details, duration, log)
-
         
-        logger.info(f"🔮 txt2img Job: \n{args}")
-        payload = {
-            # Highres
-            "enable_hr": args["enable_hr"],
-            "denoising_strength": args["denoising_strength"],
-            "hr_scale": args["hr_scale"],
-            "hr_upscaler": args["hr_upscale"],
-            "prompt": prompt,
-            "negative_prompt": negative_prompt,
-            "styles": [],
-            "seed": args["seed"],
-            "subseed": 0,
-            "subseed_strength": 0,
-            "batch_size": 1,
-            "n_iter": args["n_iter"],
-            "steps": args["steps"],
-            "cfg_scale": args["scale"],
-            "width": args["width"],
-            "height": args["height"],
-            "restore_faces": args["restore_faces"],
-            "tiling": args["tiling"],
-            "sampler_index": args["sampler"],
-            "sampler_name": args["sampler"],
-            # TODO: unknown
-            "firstphase_width": 0,
-            "firstphase_height": 0,
-            "hr_second_pass_steps": 0,
-            "hr_resize_x": 0,
-            "hr_resize_y": 0,
-            "seed_resize_from_h": -1,
-            "seed_resize_from_w": -1,
-            "eta": 0,
-            "s_churn": 0,
-            "s_tmax": 0,
-            "s_tmin": 0,
-            "s_noise": 1,
-            "override_settings": {},
-            "override_settings_restore_afterwards": True
-            # "script_args": [],
-            # "script_name": "",
-        }
+        a1111_url = "http://localhost:7860/sdapi/v1/txt2img"
         
+        if args["mode"] == "txt2img":
+            a1111_url = "http://localhost:7860/sdapi/v1/txt2img"
+            logger.info(f"🔮 txt2img Job: \n{args}")
+            payload = {
+                # Highres
+                "enable_hr": args["enable_hr"],
+                "denoising_strength": args["denoising_strength"],
+                "hr_scale": args["hr_scale"],
+                "hr_upscaler": args["hr_upscale"],
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "styles": [],
+                "seed": args["seed"],
+                "subseed": 0,
+                "subseed_strength": 0,
+                "batch_size": 1,
+                "n_iter": args["n_iter"],
+                "steps": args["steps"],
+                "cfg_scale": args["scale"],
+                "width": args["width"],
+                "height": args["height"],
+                "restore_faces": args["restore_faces"],
+                "tiling": args["tiling"],
+                "sampler_index": args["sampler"],
+                "sampler_name": args["sampler"],
+                # TODO: unknown
+                "firstphase_width": 0,
+                "firstphase_height": 0,
+                "hr_second_pass_steps": 0,
+                "hr_resize_x": 0,
+                "hr_resize_y": 0,
+                "seed_resize_from_h": -1,
+                "seed_resize_from_w": -1,
+                "eta": 0,
+                "s_churn": 0,
+                "s_tmax": 0,
+                "s_tmin": 0,
+                "s_noise": 1,
+                "override_settings": {},
+                "override_settings_restore_afterwards": True
+                # "script_args": [],
+                # "script_name": "",
+            }
+        
+        if args["mode"] == "img2img":
+            a1111_url = "http://localhost:7860/sdapi/v1/img2img"
+            logger.info(f"🖼️ img2img Job: \n{args}")
+            payload = {
+                # img2img
+                "denoising_strength" : args["img2img_denoising_strength"],
+                "resize_mode" : args["img2img_resize_mode"],
+                "image_cfg_scale" : args["scale"],
+                # TODO:?
+                # "mask" : "",
+                "mask_blur": 4,
+                "inpainting_fill": 0,
+                "inpaint_full_res": True,
+                "inpaint_full_res_padding": 0,
+                "inpainting_mask_invert": 0,
+                "initial_noise_multiplier": 0,
+                # Regular Params
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "styles": [],
+                "seed": args["seed"],
+                "subseed": 0,
+                "subseed_strength": 0,
+                "batch_size": 1,
+                "n_iter": args["n_iter"],
+                "steps": args["steps"],
+                "cfg_scale": args["scale"],
+                "width": args["width"],
+                "height": args["height"],
+                "restore_faces": args["restore_faces"],
+                "tiling": args["tiling"],
+                "sampler_index": args["sampler"],
+                "sampler_name": args["sampler"],
+                # TODO: unknown
+                "firstphase_width": 0,
+                "firstphase_height": 0,
+                "hr_second_pass_steps": 0,
+                "hr_resize_x": 0,
+                "hr_resize_y": 0,
+                "seed_resize_from_h": -1,
+                "seed_resize_from_w": -1,
+                "eta": 0,
+                "s_churn": 0,
+                "s_tmax": 0,
+                "s_tmin": 0,
+                "s_noise": 1,
+                "override_settings": {},
+                "override_settings_restore_afterwards": True
+                # "script_args": [],
+                # "script_name": "",
+            }
+        
+        if args["mode"] == "img2img":
+            # TODO: Allow uploaded images
+            initUrl = ""
+            if args["img2img_ref_img_type"] == "url": 
+                initUrl = args["img2img_ref_img_url"]
+            if args["img2img_ref_img_type"] == "piece": 
+                initUrl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
+                # , "img2img_resize_mode", "img2img_denoising_strength",
+            
+            # https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/3381#issuecomment-1310773727
+            # Weird.  Gotta add this crap before it.
+            b64=f"data:image/png;base64,{url2base64(initUrl)}"
+            payload["init_images"] = [b64]
+
         if args["controlnet_enabled"] == True:
             # TODO: Allow uploaded images
             if args["controlnet_ref_img_type"] == "piece":
@@ -489,7 +535,7 @@ def do_job(cliargs, details):
         start_time = time.time()
         
         results = requests.post(
-            "http://localhost:7860/sdapi/v1/txt2img",
+            a1111_url,
             headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
             json=payload
         ).json()
