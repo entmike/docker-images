@@ -427,12 +427,12 @@ def do_job(cliargs, details):
                 "image_cfg_scale" : args["scale"],
                 # TODO:?
                 # "mask" : "",
-                "mask_blur": 4,
-                "inpainting_fill": 0,
-                "inpaint_full_res": True,
-                "inpaint_full_res_padding": 0,
-                "inpainting_mask_invert": 0,
-                "initial_noise_multiplier": 0,
+                # "mask_blur": 4,
+                "inpainting_fill": 1,
+                # "inpaint_full_res": True,
+                # "inpaint_full_res_padding": 0,
+                # "inpainting_mask_invert": 0,
+                # "initial_noise_multiplier": 0,
                 # Regular Params
                 "prompt": prompt,
                 "negative_prompt": negative_prompt,
@@ -472,11 +472,13 @@ def do_job(cliargs, details):
         if args["mode"] == "img2img":
             # TODO: Allow uploaded images
             initUrl = ""
-            if args["img2img_ref_img_type"] == "url": 
-                initUrl = args["img2img_ref_img_url"]
-            if args["img2img_ref_img_type"] == "piece": 
-                initUrl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
-                # , "img2img_resize_mode", "img2img_denoising_strength",
+            # if args["img2img_ref_img_type"] == "url": 
+            #     initUrl = args["img2img_ref_img_url"]
+            # if args["img2img_ref_img_type"] == "piece": 
+            #     initUrl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
+            #     # , "img2img_resize_mode", "img2img_denoising_strength",
+
+            initUrl = args["img2img_ref_img_url"]
             
             # https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/3381#issuecomment-1310773727
             # Weird.  Gotta add this crap before it.
@@ -485,10 +487,12 @@ def do_job(cliargs, details):
 
         if args["controlnet_enabled"] == True:
             # TODO: Allow uploaded images
-            if args["controlnet_ref_img_type"] == "piece":
-                imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
-            if args["controlnet_ref_img_type"] == "url":
-                imgurl = args["controlnet_ref_img_url"]
+            # if args["controlnet_ref_img_type"] == "piece":
+            #     imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
+            # if args["controlnet_ref_img_type"] == "url":
+            #     imgurl = args["controlnet_ref_img_url"]
+
+            imgurl = args["controlnet_ref_img_url"]
 
             logger.info(f"🌍 Downloading image for ControlNet: {imgurl}")
             b64=url2base64(imgurl)
