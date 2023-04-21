@@ -417,6 +417,8 @@ def do_job(cliargs, details):
                 # "script_name": "",
             }
         
+        ## End of txt2img logic
+
         if args["mode"] == "img2img":
             a1111_url = "http://localhost:7860/sdapi/v1/img2img"
             logger.info(f"🖼️ img2img Job: \n{args}")
@@ -468,34 +470,22 @@ def do_job(cliargs, details):
                 # "script_args": [],
                 # "script_name": "",
             }
-        
-        if args["mode"] == "img2img":
             # TODO: Allow uploaded images
-            initUrl = ""
-            # if args["img2img_ref_img_type"] == "url": 
-            #     initUrl = args["img2img_ref_img_url"]
-            # if args["img2img_ref_img_type"] == "piece": 
-            #     initUrl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
-            #     # , "img2img_resize_mode", "img2img_denoising_strength",
-
             initUrl = args["img2img_ref_img_url"]
             
-            # https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/3381#issuecomment-1310773727
-            # Weird.  Gotta add this crap before it.
+            logger.info(f"🌍 Downloading image for img2img: {initUrl}")
+            # Weird.  Gotta add this crap before it.  (https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/3381#issuecomment-1310773727)
             b64=f"data:image/png;base64,{url2base64(initUrl)}"
             payload["init_images"] = [b64]
 
+        ## End of img2img logic
+
         if args["controlnet_enabled"] == True:
             # TODO: Allow uploaded images
-            # if args["controlnet_ref_img_type"] == "piece":
-            #     imgurl = f"https://images.feverdreams.app/images/{args['parent_uuid']}.png"
-            # if args["controlnet_ref_img_type"] == "url":
-            #     imgurl = args["controlnet_ref_img_url"]
-
             imgurl = args["controlnet_ref_img_url"]
-
             logger.info(f"🌍 Downloading image for ControlNet: {imgurl}")
             b64=url2base64(imgurl)
+            # b64=f"data:image/png;base64,{url2base64(imgurl)}"
 
             lowvram = False
             gpu = list(nvsmi.get_gpus())[0]
@@ -515,7 +505,7 @@ def do_job(cliargs, details):
                     "args" : [
                         {
                             "input_image": b64,
-                            "mask": "",
+                            # "mask": "",
                             "module": args["controlnet_module"],
                             "model": args["controlnet_model"],
                             "weight": args["controlnet_weight"],
@@ -533,6 +523,8 @@ def do_job(cliargs, details):
                 }
             }
             logger.info(f"🔮 ControlNet Enabled: \n{args}")
+
+        ## End of CN logic
 
         # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
         # Grab start timestamp
