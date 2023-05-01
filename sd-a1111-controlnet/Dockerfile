@@ -21,12 +21,14 @@ RUN echo "stable ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/stable
 USER stable
 
 # Install AUTOMATIC1111/stable-diffusion-webui
+ARG CACHEBUST=1
 RUN bash -c "cd ~ && COMMANDLINE_ARGS='--exit --skip-torch-cuda-test' bash <(wget -qO- https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui/master/webui.sh)"
 
 # Install xformers (shouldn't take too long since ninja is installed)
-RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && pip install ninja && \
-export FORCE_CUDA=1 && export TORCH_CUDA_ARCH_LIST=8.6 && CUDA_VISIBLE_DEVICES=0 && \
-pip install git+https://github.com/facebookresearch/xformers.git#egg=xformers"
+# RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && pip install ninja && \
+# export FORCE_CUDA=1 && export TORCH_CUDA_ARCH_LIST=8.6 && CUDA_VISIBLE_DEVICES=0 && \
+# pip install git+https://github.com/facebookresearch/xformers.git#egg=xformers"
+RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && pip install xformers==0.0.19"
 
 # Add venv activation to .bashrc
 RUN echo "source /home/stable/stable-diffusion-webui/venv/bin/activate" >> ~/.bashrc
