@@ -355,8 +355,8 @@ def do_job(cliargs, details):
             "multiple_tqdm" : False
         }
 
-        # if "clip_skip" in args:
-        #     a1111_config["CLIP_stop_at_last_layers"] = args['clip_skip']
+        if "clip_skip" in args:
+            a1111_config["CLIP_stop_at_last_layers"] = int(args['clip_skip']) 
 
         if "fr_model" in args:
             a1111_config['face_restoration_model'] = args['fr_model']
@@ -615,74 +615,77 @@ def loop(args):
         
         gpu_record = json.dumps(gpu_record)
         memdict = json.dumps(memdict)
-        url = f"{args['api']}/v3/takeorder/{args['agent']}"
-        
-        try:
-            logger.info("🧪 Checking A1111 API...")
-            results = requests.get(
-                "http://localhost:7860/sdapi/v1/memory",
-                headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
-            ).json()
-            logger.info(results)
+
+        urls = f"{args['api']}/v3/takeorder/{args['agent']}".split(",")
+        for url in urls:
+            url = f"{args['api']}/v3/takeorder/{args['agent']}"
             
-            # Check API
             try:
-                logger.debug(f"🌎 Checking '{url}'...")
-                results = requests.post(
-                    url,
-                    data={
-                        "bot_version" : AGENTVERSION,
-                        "controlnet_commit" : CONTROLNET_COMMIT,
-                        "algo" : "stable",
-                        "repo" : "a1111",
-                        "gpus": gpu_record,
-                        "owner": args["owner"],
-                        "idle_time": idle_time,
-                        "start_time" : start_time,
-                        "free_space" : free,
-                        "total_space" : total,
-                        "used_space" : used,
-                        "boot_time" : boot_time,
-                        "memory" : memdict
-                    }
+                logger.info("🧪 Checking A1111 API...")
+                results = requests.get(
+                    "http://localhost:7860/sdapi/v1/memory",
+                    headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
                 ).json()
+                logger.info(results)
+                
+                # Check API
+                try:
+                    logger.debug(f"🌎 Checking '{url}'...")
+                    results = requests.post(
+                        url,
+                        data={
+                            "bot_version" : AGENTVERSION,
+                            "controlnet_commit" : CONTROLNET_COMMIT,
+                            "algo" : "stable",
+                            "repo" : "a1111",
+                            "gpus": gpu_record,
+                            "owner": args["owner"],
+                            "idle_time": idle_time,
+                            "start_time" : start_time,
+                            "free_space" : free,
+                            "total_space" : total,
+                            "used_space" : used,
+                            "boot_time" : boot_time,
+                            "memory" : memdict
+                        }
+                    ).json()
 
-                if "command" in results:
-                    if results["command"] == 'terminate':
-                        logger.info("🛑 Received terminate instruction.  Cya.")
-                        run = False    
+                    if "command" in results:
+                        if results["command"] == 'terminate':
+                            logger.info("🛑 Received terminate instruction.  Cya.")
+                            run = False    
 
-                if results["success"]:
-                    if "details" in results:
-                        details = results["details"]
-                        logger.info(f"Job {details['uuid']} received.")
-                        idle_time = 0
-                    
-                        do_job(args, details)
-                else:
-                    logger.error(results)
+                    if results["success"]:
+                        if "details" in results:
+                            details = results["details"]
+                            logger.info(f"Job {details['uuid']} received.")
+                            idle_time = 0
+                        
+                            do_job(args, details)
+                    else:
+                        logger.error(results)
 
-            except Exception as e:
-                logger.info("📡 Cannot reach FD API.")
-                tb = traceback.format_exc()
-                logger.error(tb)
+                except Exception as e:
+                    logger.info("📡 Cannot reach FD API.")
+                    tb = traceback.format_exc()
+                    logger.error(tb)
+                    pass
+
+            except requests.exceptions.ConnectionError as e:
+                # tb = traceback.format_exc()
+                # logger.error(tb)
+                logger.info("📡 Cannot reach A1111 API.  Maybe it is just starting or crashed?")
                 pass
-
-        except requests.exceptions.ConnectionError as e:
-            # tb = traceback.format_exc()
-            # logger.error(tb)
-            logger.info("📡 Cannot reach A1111 API.  Maybe it is just starting or crashed?")
-            pass
-        
-        
-        if run:
-            poll_interval = args["poll_interval"]
-            poll_interval = 5
-            logger.info(f"Sleeping for {poll_interval} seconds...  I've been sleeping for {idle_time} seconds.")
-            time.sleep(poll_interval)
-            idle_time = idle_time + poll_interval
-        else:
-            logger.info("Terminating loop.")
+            
+            
+            if run:
+                poll_interval = args["poll_interval"]
+                poll_interval = 5
+                logger.info(f"Sleeping for {poll_interval} seconds...  I've been sleeping for {idle_time} seconds.")
+                time.sleep(poll_interval)
+                idle_time = idle_time + poll_interval
+            else:
+                logger.info("Terminating loop.")
 
 
 if __name__ == "__main__":
