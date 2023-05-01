@@ -39,10 +39,11 @@ def url2base64(url):
 
 
 
-def deliver(args, details, duration, log):
+def deliver(args, details, duration, log, base_url):
     sample_path = os.path.join(args['out'], f"{details['uuid']}.png")
     ref_path = os.path.join(args['out'], f"{details['uuid']}_ref.png")
-    url = f"{args['api']}/v3/deliverorder"
+    # url = f"{args['api']}/v3/deliverorder"
+    url = f"{base_url}/v3/deliverorder"
     
     files = {
         "file": open(sample_path, "rb")
@@ -88,7 +89,7 @@ def deliver(args, details, duration, log):
             tb = traceback.format_exc()
             logger.error(tb)
 
-def do_job(cliargs, details):    
+def do_job(cliargs, details, url):    
     # DEFAULTS
     args = {
         "sd_model_checkpoint" : "v1-5-pruned-emaonly.ckpt",
@@ -569,7 +570,7 @@ def do_job(cliargs, details):
             image_without_metadata.save(reference_image_path)
             print('Reference image written successfully.')
 
-        deliver(cliargs, details, duration, log)
+        deliver(cliargs, details, duration, log, url)
 
     except Exception as e:
         connected = True #TODO: what?
@@ -581,7 +582,7 @@ def do_job(cliargs, details):
             log = server.supervisor.readProcessStdoutLog("auto1111", 0, 0)
             errlog = server.supervisor.readProcessStderrLog("auto1111", 0, 0)
             values = {"message": f"Job failed:\n\n{e}", "traceback": tb, "log" : log, "errlog": errlog}
-            requests.post(f"{cliargs['api']}/v3/reject/{cliargs['agent']}/{details['uuid']}", data=values)
+            requests.post(f"{url}/v3/reject/{cliargs['agent']}/{details['uuid']}", data=values)
         else:
             logger.error(f"Error.  Check your API host is running at that location.  Also check your own internet connectivity.  Exception:\n{tb}")
             raise(tb)
@@ -615,11 +616,11 @@ def loop(args):
         
         gpu_record = json.dumps(gpu_record)
         memdict = json.dumps(memdict)
+        # url = f"{args['api']}/v3/takeorder/{args['agent']}"
+        urls = f"{args['api']}".split(",")
 
-        urls = f"{args['api']}/v3/takeorder/{args['agent']}".split(",")
-        for url in urls:
-            url = f"{args['api']}/v3/takeorder/{args['agent']}"
-            
+        for base_url in urls:
+            url = f"{base_url}/v3/takeorder/{args['agent']}"
             try:
                 logger.info("🧪 Checking A1111 API...")
                 results = requests.get(
@@ -661,7 +662,7 @@ def loop(args):
                             logger.info(f"Job {details['uuid']} received.")
                             idle_time = 0
                         
-                            do_job(args, details)
+                            do_job(args, details, base_url)
                     else:
                         logger.error(results)
 

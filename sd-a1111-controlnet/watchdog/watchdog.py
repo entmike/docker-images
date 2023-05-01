@@ -9,9 +9,12 @@ def loop(args):
     run = True
     idle_time = 0
     boot_time = datetime.utcnow()
-    fd_api_url = f"{args['api']}/v3/agentstatus"
+    # fd_api_url = f"{args['api']}/v3/agentstatus"
+    urls = f"{args['api']}".split(",")
+    poll_interval = 3
 
     while run:
+        time.sleep(poll_interval)
         try:
             # Get A1111 Status
             progress = requests.get(
@@ -41,30 +44,27 @@ def loop(args):
                 logger.info(result)
                 result = server.supervisor.startProcess('auto1111')
                 logger.info(result)
-            try:
-                fd_results = requests.post(
-                    fd_api_url,
-                    headers = {'Content-type': 'application/json'},
-                    data=json.dumps(payload)
-                ).json()
 
-            except Exception as e:
-                logger.info("📡 Cannot reach FD API.")
-                tb = traceback.format_exc()
-                logger.error(tb)
-                time.sleep(poll_interval)
-                pass
-
-            
-            poll_interval = 3
+            for base_url in urls:
+                url = f"{base_url}/v3/agentstatus"
+                try:
+                    fd_results = requests.post(
+                        url,
+                        headers = {'Content-type': 'application/json'},
+                        data=json.dumps(payload)
+                    ).json()
+                except Exception as e:
+                    logger.info(f"📡 Cannot reach FD API {url}")
+                    tb = traceback.format_exc()
+                    logger.error(tb)
+                    pass
             # logger.info(f"🐶 Sleeping for {poll_interval} seconds...")
-            time.sleep(poll_interval)
 
         except requests.exceptions.ConnectionError as e:
             # tb = traceback.format_exc()
             # logger.error(tb)
             logger.info("📡 Cannot reach A1111 API.  Maybe it is just starting or crashed?")
-            time.sleep(15)
+            time.sleep(10)
             pass
         
         except:
