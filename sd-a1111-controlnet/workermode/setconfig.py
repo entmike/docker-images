@@ -20,6 +20,11 @@ config["grid_save"] = False
 config["do_not_add_watermark"] = True
 config["enable_pnginfo"] = False
 config["show_progressbar"] = False
+config["multiple_tqdm"] = False
+config["CLIP_stop_at_last_layers"] = 1
+config["face_restoration_model"] = "CodeFormer"
+config["code_former_weight"] = 0.5
+config["ad_save_images_before"] = True 
 
 # Save the modified config file
 with open("/home/stable/stable-diffusion-webui/config.json", "w") as f:
