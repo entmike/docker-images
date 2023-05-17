@@ -26,6 +26,30 @@ AGENTVERSION = "a1111-v2-controlnet"
 CONTROLNET_COMMIT = os.environ.get('CONTROLNET_COMMIT', "UNKNOWN")
 index_url = os.environ.get('INDEX_URL', "")
 
+
+def make_white_mask(b64_string):
+    # Remove the prefix if it exists
+    prefix = "data:image/png;base64,"
+    if b64_string.startswith(prefix):
+        b64_string = b64_string[len(prefix):]
+    # Add padding to the base64 string if needed
+    padding = b'=' * (4 - (len(b64_string) % 4))
+    b64_string += padding.decode("utf-8")
+    # Decode base64 string into bytes
+    image_bytes = base64.b64decode(b64_string)
+    # Load the image
+    image = Image.open(BytesIO(image_bytes))               
+    # Create a new image with white background
+    new_image = Image.new("RGBA", image.size, (255, 255, 255))
+    # Copy the original image onto the white background
+    new_image.paste(image, (0, 0), mask=image)
+    # Convert the modified image to bytes
+    output_bytes = BytesIO()
+    new_image.save(output_bytes, format="PNG")
+    output_bytes = output_bytes.getvalue()
+    # Encode the modified image bytes into base64
+    return base64.b64encode(output_bytes).decode("utf-8")
+
 def url2base64(url):
     response = requests.get(url)  # download the image from the URL
     if response.status_code == 200:  # check if the request was successful
@@ -120,6 +144,26 @@ def do_job(cliargs, details, url):
         "restore_faces" : False,
         "fr_model" : "CodeFormer",
         "cf_weight" : 0.5,
+        # After Detailer Options
+        "enable_ad" : False,
+        "ad_model" : "face_yolov8n.pt",
+        "ad_prompt" : "",
+        "ad_negative_prompt" : "",
+        "ad_conf" : 0.3,
+        "ad_dilate_erode" : 32,   
+        "ad_x_offset" : 0,
+        "ad_y_offset" : 0,
+        "ad_mask_blur" : 4,
+        "ad_denoising_strength" : 0.4,
+        "ad_inpaint_full_res" : True,
+        "ad_inpaint_full_res_padding" : 0,
+        "ad_use_inpaint_width_height" : False,
+        "ad_inpaint_width" : 512,
+        "ad_inpaint_height" : 512,
+        "ad_use_cfg_scale" : False,
+        "ad_cfg_scale" : 7.0,
+        "ad_controlnet_model" : "None",
+        "ad_controlnet_weight" : 1.0,
         # Highres Options
         "enable_hr" : False,
         "denoising_strength" : 0.75,
@@ -130,10 +174,19 @@ def do_job(cliargs, details, url):
         "img2img_ref_img_url" : "",
         "img2img_resize_mode" : 0,
         "img2img_denoising_strength" : 0.75,
+        # img2img inpaint
+        "img2img_mask_hash" : "",
+        "img2img_inpaint" : False,
+        "img2img_inpainting_fill" : None,
+        "img2img_inpaint_full_res" : None,
+        "img2img_inpaint_full_res_padding" : 32,
+        "img2img_inpainting_mask_invert" : None,
+        "img2img_initial_noise_multiplier" : None,
+        "img2img_mask_blur": 4,
         # controlnet
         "controlnet_enabled" : False,
         "controlnet_ref_img_type" : "piece",
-        "controlnet_guessmode" : False,
+        "controlnet_control_mode" : "0",
         "controlnet_module": "canny",
         "controlnet_model": "control_sd15_canny [fef5e48e]",
         "controlnet_weight": 1,
@@ -144,7 +197,7 @@ def do_job(cliargs, details, url):
         "controlnet_mask": [],
         "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
         "controlnet_lowvram": False,
-        "controlnet_processor_res": 512,
+        "controlnet_preprocessor_resolution": 512,
         "controlnet_threshold_a": 100,
         "controlnet_threshold_b": 200,
         "alwayson_scripts" : {}
@@ -165,12 +218,19 @@ def do_job(cliargs, details, url):
         "ti_enabled","embeddings",
         # Upscale options
         "enable_hr","denoising_strength","hr_scale","hr_upscale",
+        # After Detailer Options
+        "enable_ad","ad_model","ad_prompt","ad_negative_prompt","ad_conf","ad_dilate_erode","ad_x_offset","ad_y_offset",
+        "ad_mask_blur","ad_denoising_strength","ad_inpaint_full_res","ad_inpaint_full_res_padding","ad_use_inpaint_width_height",
+        "ad_inpaint_width","ad_inpaint_height","ad_use_cfg_scale","ad_cfg_scale","ad_controlnet_model","ad_controlnet_weight",
         # img2img options
         "img2img_ref_img_type", "img2img_ref_img_url", "img2img_resize_mode", "img2img_denoising_strength",
-        # ControlNet options
-        "controlnet_enabled","controlnet_ref_img_type","controlnet_ref_img_url","controlnet_guessmode","controlnet_module",
+        # img2img inpaint options
+        "img2img_mask_hash", "img2img_inpaint","img2img_inpainting_fill","img2img_inpaint_full_res","img2img_inpaint_full_res_padding",
+        "img2img_inpainting_mask_invert","img2img_initial_noise_multiplier","img2img_mask_blur",
+        # ControlNet options 
+        "controlnet_enabled","controlnet_ref_img_type","controlnet_ref_img_url","controlnet_control_mode","controlnet_module",
         "controlnet_model","controlnet_weight","controlnet_guidance_start","controlnet_guidance_end","controlnet_resizemode",
-        "controlnet_threshold_a","controlnet_threshold_b"
+        "controlnet_preprocessor_resolution", "controlnet_threshold_a","controlnet_threshold_b",
         "firstphase_width","firstphase_height"
     ]:
         # If parameter is in jobparams, override args default.
@@ -211,6 +271,8 @@ def do_job(cliargs, details, url):
     try:
         prompt = args["prompt"].lower()
         negative_prompt = args["negative_prompt"].lower()
+        ad_prompt = args["ad_prompt"].lower()
+        ad_negative_prompt = args["ad_negative_prompt"].lower()
 
         # Add <lora: ... > tags
         if "loras_enabled" in args:
@@ -220,21 +282,28 @@ def do_job(cliargs, details, url):
                     weight = lora["weight"]
                     loraname = f"{model['SHA256'].lower()}"
                     prompt = f"{prompt}, <lora:{loraname}:{weight}>"
+                    # Guessing this will work
+                    ad_prompt = f"{ad_prompt}, <lora:{loraname}:{weight}>"
 
         # Add embedding tokens
         if "ti_enabled" in args:
             if args["ti_enabled"] == True:
                 for embedding in args["embeddings"]:
-                    model = embedding["model"]
+                    model = embedding["model"] 
                     weight = embedding["weight"]
                     embeddingname = f"{model['SHA256'].lower()}"
                     filename = model['filename'].lower()
                     prompt = prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
                     negative_prompt = negative_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
+                    # Guessing this will work
+                    ad_prompt = ad_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
+                    ad_negative_prompt = ad_negative_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
 
         if "offset_noise" in args:
             if args["offset_noise"] > 0.0 or args["offset_noise"] < 0.0:
                 prompt = f"{prompt}, <lora:epiNoiseoffset_v2:{args['offset_noise']}>"
+                # Guessing this will work
+                ad_prompt = f"{ad_prompt}, <lora:epiNoiseoffset_v2:{args['offset_noise']}>"
 
         logger.info(f"ℹ️ Prompt: {prompt}")
         logger.info(f"ℹ️ Negative Prompt: {negative_prompt}")
@@ -349,29 +418,29 @@ def do_job(cliargs, details, url):
                         os.remove(lockFileName)
             
             args['sd_model_checkpoint'] = f"civitai-cache_{om['SHA256'].lower()}"
-
+        else:
+            if '.' not in args['sd_model_checkpoint']:
+                # New hash logic
+                lookup_url = f"{url}/lookupmodelhash/{args['sd_model_checkpoint']}"
+                logger.info(f"ℹ️ Getting metadata about {args['sd_model_checkpoint']}...")
+                # results = requests.get(lookup_url,
+                #     headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                # ).json()
                 
-        a1111_config = {
-            "sd_model_checkpoint" : args["sd_model_checkpoint"],
-            "multiple_tqdm" : False
-        }
+        override_settings = {}
+        override_settings["sd_model_checkpoint"] = args["sd_model_checkpoint"]
+        override_settings["multiple_tqdm"] = False
+        override_settings["ad_save_images_before"] = True
 
         if "clip_skip" in args:
-            a1111_config["CLIP_stop_at_last_layers"] = int(args['clip_skip']) 
+            override_settings["CLIP_stop_at_last_layers"] = int(args['clip_skip']) 
 
         if "fr_model" in args:
-            a1111_config['face_restoration_model'] = args['fr_model']
+            override_settings['face_restoration_model'] = args['fr_model']
 
         if "cf_weight" in args:
-            a1111_config['code_former_weight'] = args['cf_weight']
-
-        logger.info(f"🤖 Setting config {a1111_config}")
-        results = requests.post(
-            "http://localhost:7860/sdapi/v1/options",
-            headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
-            json=a1111_config
-        ).json()
-        
+            override_settings['code_former_weight'] = args['cf_weight']
+       
         a1111_url = "http://localhost:7860/sdapi/v1/txt2img"
         
         if args["mode"] == "txt2img":
@@ -412,26 +481,54 @@ def do_job(cliargs, details, url):
                 "s_tmax": 0,
                 "s_tmin": 0,
                 "s_noise": 1,
-                "override_settings": {},
-                "override_settings_restore_afterwards": True
-                # "script_args": [],
+                "override_settings": override_settings,
+                "override_settings_restore_afterwards": False,
+                "alwayson_scripts" : {}
+                # "script_args": [], 
                 # "script_name": "",
             }
-        
+            if args["enable_ad"] == True:
+                logger.info("🎉 After Detailer On")
+                payload["alwayson_scripts"]["After Detailer"] = {
+                    "args" : [
+                        args["enable_ad"],
+                        args["ad_model"],
+                        # args["ad_prompt"],
+                        # args["ad_negative_prompt"],
+                        ad_prompt,
+                        ad_negative_prompt,
+                        args["ad_conf"],
+                        args["ad_dilate_erode"],
+                        args["ad_x_offset"],
+                        args["ad_y_offset"],
+                        args["ad_mask_blur"],
+                        args["ad_denoising_strength"],
+                        args["ad_inpaint_full_res"],
+                        args["ad_inpaint_full_res_padding"],
+                        args["ad_use_inpaint_width_height"],
+                        args["ad_inpaint_width"],
+                        args["ad_inpaint_height"],
+                        args["ad_use_cfg_scale"],
+                        args["ad_cfg_scale"],
+                        args["ad_controlnet_model"],
+                        args["ad_controlnet_weight"]
+                    ] 
+                }
+            # logger.info(json.dumps(payload))
         ## End of txt2img logic
 
         if args["mode"] == "img2img":
             a1111_url = "http://localhost:7860/sdapi/v1/img2img"
-            logger.info(f"🖼️ img2img Job: \n{args}")
+            
             payload = {
                 # img2img
                 "denoising_strength" : args["img2img_denoising_strength"],
                 "resize_mode" : args["img2img_resize_mode"],
                 "image_cfg_scale" : args["scale"],
-                # TODO:?
+                # img2img inpaint options
                 # "mask" : "",
                 # "mask_blur": 4,
-                "inpainting_fill": 1,
+                # "inpainting_fill": 1,
                 # "inpaint_full_res": True,
                 # "inpaint_full_res_padding": 0,
                 # "inpainting_mask_invert": 0,
@@ -466,11 +563,55 @@ def do_job(cliargs, details, url):
                 "s_tmax": 0,
                 "s_tmin": 0,
                 "s_noise": 1,
-                "override_settings": {},
-                "override_settings_restore_afterwards": True
+                "override_settings": override_settings,
+                "override_settings_restore_afterwards": False,
+                "alwayson_scripts" : {}
                 # "script_args": [],
                 # "script_name": "",
             }
+            # get mask
+            mask = ""
+            if "img2img_inpaint" in args and args["img2img_inpaint"]==True:
+                hashurl = f"{url}/v3/getmask/{args['img2img_mask_hash']}"
+                logger.info(f"👺 Downloading mask from {hashurl}")
+                m = requests.get(hashurl, headers = {'accept': 'application/json', 'Content-Type': 'application/json'}).json()
+
+                payload["mask"] = make_white_mask(m["mask"])
+                payload["mask_blur"] = args["img2img_mask_blur"]
+                payload["inpainting_fill"] = int(args["img2img_inpainting_fill"])
+                payload["inpaint_full_res"] = args["img2img_inpaint_full_res"]
+                payload["inpaint_full_res_padding"] = args["img2img_inpaint_full_res_padding"]
+                payload["inpainting_mask_invert"] = args["img2img_inpainting_mask_invert"]
+                payload["initial_noise_multiplier"] = args["img2img_initial_noise_multiplier"]
+
+            logger.info(f"🖼️ img2img Job: \n{args}")
+            if args["enable_ad"] == True:
+                logger.info("🎉 After Detailer On")
+                payload["alwayson_scripts"]["After Detailer"] = {
+                    "args" : [
+                        args["enable_ad"],
+                        args["ad_model"],
+                        # args["ad_prompt"],
+                        # args["ad_negative_prompt"],
+                        ad_prompt,
+                        ad_negative_prompt,
+                        args["ad_conf"],
+                        args["ad_dilate_erode"],
+                        args["ad_x_offset"],
+                        args["ad_y_offset"],
+                        args["ad_mask_blur"],
+                        args["ad_denoising_strength"],
+                        args["ad_inpaint_full_res"],
+                        args["ad_inpaint_full_res_padding"],
+                        args["ad_use_inpaint_width_height"],
+                        args["ad_inpaint_width"],
+                        args["ad_inpaint_height"],
+                        args["ad_use_cfg_scale"],
+                        args["ad_cfg_scale"],
+                        args["ad_controlnet_model"],
+                        args["ad_controlnet_weight"]
+                    ] 
+                }
             # TODO: Allow uploaded images
             initUrl = args["img2img_ref_img_url"]
             
@@ -486,8 +627,6 @@ def do_job(cliargs, details, url):
             imgurl = args["controlnet_ref_img_url"]
             logger.info(f"🌍 Downloading image for ControlNet: {imgurl}")
             b64=url2base64(imgurl)
-            # b64=f"data:image/png;base64,{url2base64(imgurl)}"
-
             lowvram = False
             gpu = list(nvsmi.get_gpus())[0]
             gpu_mem = gpu.__dict__["mem_total"]
@@ -501,27 +640,25 @@ def do_job(cliargs, details, url):
             # INNER_FIT = "Inner Fit (Scale to Fit)"
             # OUTER_FIT = "Outer Fit (Shrink to Fit)"
 
-            payload["alwayson_scripts"] = {
-                "controlnet" : {
-                    "args" : [
-                        {
-                            "input_image": b64,
-                            # "mask": "",
-                            "module": args["controlnet_module"],
-                            "model": args["controlnet_model"],
-                            "weight": args["controlnet_weight"],
-                            # "resize_mode": "Scale to Fit (Inner Fit)",
-                            "resize_mode" : "Inner Fit (Scale to Fit)",
-                            "lowvram": lowvram,
-                            "processor_res": args["controlnet_processor_res"],
-                            "threshold_a": args["controlnet_threshold_a"],
-                            "threshold_b": args["controlnet_threshold_b"],
-                            "guidance_start": args["controlnet_guidance_start"],
-                            "guidance_end": args["controlnet_guidance_end"],
-                            "guessmode": args["controlnet_guessmode"]
-                        }
-                    ]
-                }
+            payload["alwayson_scripts"]["controlnet"]={
+                "args" : [
+                    {
+                        "input_image": b64,
+                        # "mask": "",
+                        "module": args["controlnet_module"],
+                        "model": args["controlnet_model"],
+                        "weight": args["controlnet_weight"],
+                        # "resize_mode": "Scale to Fit (Inner Fit)",
+                        "resize_mode" : "Inner Fit (Scale to Fit)",
+                        "lowvram": lowvram,
+                        "processor_res": args["controlnet_processor_resolution"],
+                        "threshold_a": args["controlnet_threshold_a"],
+                        "threshold_b": args["controlnet_threshold_b"],
+                        "guidance_start": args["controlnet_guidance_start"],
+                        "guidance_end": args["controlnet_guidance_end"],
+                        "control_mode": int(args["controlnet_control_mode"])
+                    }
+                ]
             }
             logger.info(f"🔮 ControlNet Enabled: \n{args}")
 
@@ -530,7 +667,13 @@ def do_job(cliargs, details, url):
         # logger.info(f"🔮 Sending payload to A1111 API...\n{payload}")
         # Grab start timestamp
         start_time = time.time()
-        
+        # Debug output
+        file_path = f"/outdir/{details['uuid']}.json"
+        # Open the file in write mode
+        with open(file_path, "w") as file:
+            # Write the dictionary to the file
+            json.dump(payload, file)
+            
         results = requests.post(
             a1111_url,
             headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
