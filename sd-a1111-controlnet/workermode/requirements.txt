@@ -4,3 +4,4 @@ loguru
 nvsmi
 psutil
 GitPython
+svglib

@@ -113,6 +113,42 @@ def deliver(args, details, duration, log, base_url):
             tb = traceback.format_exc()
             logger.error(tb)
 
+def download_model(cdnurl,cdndir,filename):
+    logger.info(f"🌍 Downloading {filename} from {cdnurl} to {cdndir}...")
+    os.makedirs(cdndir, exist_ok=True)
+    filetarget = f"{cdndir}/{filename}"
+    lockFileName = f"{filetarget}.lock"
+    
+    # Take no action until lock file is gone
+    while os.path.isfile(lockFileName):
+        logger.info(f"Looks like the file is being downloaded.  Waiting for 5 seconds...")
+        time.sleep(5)
+    
+    if not os.path.isfile(filetarget):
+        if not os.path.isfile(lockFileName):
+            with open(lockFileName, "w") as lockfile:
+                lockfile.write("")
+            try:
+                logger.info(f"Downloading {filetarget} from {cdnurl}...")
+                model = requests.get(cdnurl)
+                response = requests.get(cdnurl)
+                open(filetarget, "wb").write(response.content)
+                logger.info(f"File downloaded.  Refreshing checkpoints in A1111...")
+                results = requests.post(
+                "http://localhost:7860/sdapi/v1/refresh-checkpoints",
+                    headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
+                    json={"sd_model_checkpoint":filename.split(".")[0].lower()}
+                ).json()
+            except:
+                pass
+
+            if os.path.exists(lockFileName):
+                os.remove(lockFileName)
+        else:
+            logger.info(f"Unexpected lock file exists: {lockFileName}")
+    else:
+        logger.info(f"{filetarget} already exists.")
+
 def do_job(cliargs, details, url):    
     # DEFAULTS
     args = {
@@ -383,49 +419,30 @@ def do_job(cliargs, details, url):
         if args['sd_model_checkpoint'] == "other":
             om = args['other_model']
             logger.info("🤖 Custom model detected.")
-            logger.info(om)
-            # cdnurl = f"{cliargs['model_cdn']}/models/{om['model_id']}/{om['model_version']}/{om['model_file']}/{om['filename']}"
             cdnurl = f"{cliargs['model_cdn']}/models/files/{om['SHA256'].lower()}"
             cdndir = f"/home/stable/stable-diffusion-webui/models/Stable-diffusion/civitai-cache"
-            os.makedirs(cdndir, exist_ok=True)
-            filetarget = f"{cdndir}/{om['SHA256'].lower()}.{om['filename'].split('.')[-1]}"
-            lockFileName = f"{filetarget}.lock"
-            
-            # Take no action until lock file is gone
-            while os.path.isfile(lockFileName):
-                logger.info(f"Looks like the file is being downloaded.  Waiting for 5 seconds...")
-                time.sleep(5)
-            
-            if not os.path.isfile(filetarget):
-                if not os.path.isfile(lockFileName):
-                    with open(lockFileName, "w") as lockfile:
-                        lockfile.write("")
-                    try:
-                        logger.info(f"Downloading {filetarget} from {cdnurl}...")
-                        model = requests.get(cdnurl)
-                        response = requests.get(cdnurl)
-                        open(filetarget, "wb").write(response.content)
-                        logger.info(f"File downloaded.  Refreshing checkpoints in A1111...")
-                        results = requests.post(
-                        "http://localhost:7860/sdapi/v1/refresh-checkpoints",
-                            headers = {'accept': 'application/json', 'Content-Type': 'application/json'},
-                            json={"sd_model_checkpoint":args["sd_model_checkpoint"]}
-                        ).json()
-                    except:
-                        pass
-
-                    if os.path.exists(lockFileName):
-                        os.remove(lockFileName)
-            
+            extension = om['filename'].split('.')[-1]
+            filename = f"{om['SHA256'].lower()}.{extension}"
+            download_model(cdnurl,cdndir,filename)
             args['sd_model_checkpoint'] = f"civitai-cache_{om['SHA256'].lower()}"
         else:
             if '.' not in args['sd_model_checkpoint']:
+                model_hash = args['sd_model_checkpoint'].lower()
                 # New hash logic
-                lookup_url = f"{url}/lookupmodelhash/{args['sd_model_checkpoint']}"
+                lookup_url = f"{url}/v3/modelbyhash/{args['sd_model_checkpoint']}"
                 logger.info(f"ℹ️ Getting metadata about {args['sd_model_checkpoint']}...")
-                # results = requests.get(lookup_url,
-                #     headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
-                # ).json()
+                results = requests.get(lookup_url,
+                    headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                ).json()
+                
+                extension = results["modelVersions"]["files"]["name"].split('.')[-1]
+                logger.info(f"⭐ {args['sd_model_checkpoint']} is {extension} extension.")
+                cdnurl = f"{cliargs['model_cdn']}/models/files/{model_hash}"
+                cdndir = f"/home/stable/stable-diffusion-webui/models/Stable-diffusion/civitai-cache"
+                filename = f"{model_hash}.{extension}"
+                download_model(cdnurl,cdndir,filename)
+                args['sd_model_checkpoint'] = f"civitai-cache_{model_hash}"     # A1111 treats folder paths with underscores because who knows why
+                # args['sd_model_checkpoint'] = model_hash
                 
         override_settings = {}
         override_settings["sd_model_checkpoint"] = args["sd_model_checkpoint"]

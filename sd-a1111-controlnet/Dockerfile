@@ -6,7 +6,9 @@ ENV DEBIAN_FRONTEND noninteractive\
     SHELL=/bin/bash
 
 RUN apt-get update && apt-get upgrade -y && apt install software-properties-common -y && add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get install -y wget git python3.10-dev python3.10-venv python3-pip zip unzip sudo libsm6 libxext6 ffmpeg git git-lfs supervisor && \
+    apt-get install -y wget git python3.10-dev python3.10-venv python3-pip zip unzip sudo libsm6 libxext6 ffmpeg git git-lfs \
+    supervisor sox ffmpeg libcairo2 libcairo2-dev && \
+    apt install -y libgirepository1.0-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
 
@@ -40,8 +42,10 @@ RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && \
 pip install --force-reinstall httpcore==0.15 && \
 pip install -r workermode-requirements.txt"
 
-# Add controlnet extension
+# Add ControlNet extension
 RUN git clone https://github.com/Mikubill/sd-webui-controlnet /home/stable/stable-diffusion-webui/extensions/sd-webui-controlnet
+# Add After Detailer extension
+RUN git clone https://github.com/Bing-su/adetailer.git /home/stable/stable-diffusion-webui/extensions/adetailer
 
 # Add workermode files
 ADD start.sh /start.sh
