@@ -152,7 +152,7 @@ def download_model(cdnurl,cdndir,filename):
 def do_job(cliargs, details, url):    
     # DEFAULTS
     args = {
-        "sd_model_checkpoint" : "v1-5-pruned-emaonly.ckpt",
+        "sd_model_checkpoint" : "cc6cb27103417325ff94f52b7a5d2dde45a7515b25c255d8e396c90014281516",
         "mode" : "txt2img",
         "other_model" : {},
         "parent_uuid" : "UNKNOWN",
@@ -173,6 +173,9 @@ def do_job(cliargs, details, url):
         # LORA Options
         "loras_enabled" : False,
         "loras" : [],
+        # LyCORIS Options
+        "locons_enabled" : False,
+        "locons" : [],
         # TI Options
         "ti_enabled" : False,
         "embeddings" : [],
@@ -198,6 +201,8 @@ def do_job(cliargs, details, url):
         "ad_inpaint_height" : 512,
         "ad_use_cfg_scale" : False,
         "ad_cfg_scale" : 7.0,
+        "ad_use_steps" : False,
+        "ad_steps" : 28,
         "ad_controlnet_model" : "None",
         "ad_controlnet_weight" : 1.0,
         # Highres Options
@@ -250,6 +255,8 @@ def do_job(cliargs, details, url):
         "parent_uuid","prompt","negative_prompt","scale","offset_noise","steps","seed","restore_faces","tiling","sampler",
         # LORA Options
         "loras_enabled","loras",
+        # LyCORIS Options
+        "locons_enabled","locons",
         # TI Options
         "ti_enabled","embeddings",
         # Upscale options
@@ -257,7 +264,7 @@ def do_job(cliargs, details, url):
         # After Detailer Options
         "enable_ad","ad_model","ad_prompt","ad_negative_prompt","ad_conf","ad_dilate_erode","ad_x_offset","ad_y_offset",
         "ad_mask_blur","ad_denoising_strength","ad_inpaint_full_res","ad_inpaint_full_res_padding","ad_use_inpaint_width_height",
-        "ad_inpaint_width","ad_inpaint_height","ad_use_cfg_scale","ad_cfg_scale","ad_controlnet_model","ad_controlnet_weight",
+        "ad_inpaint_width","ad_inpaint_height","ad_use_cfg_scale","ad_cfg_scale","ad_use_steps","ad_steps","ad_controlnet_model","ad_controlnet_weight",
         # img2img options
         "img2img_ref_img_type", "img2img_ref_img_url", "img2img_resize_mode", "img2img_denoising_strength",
         # img2img inpaint options
@@ -311,29 +318,49 @@ def do_job(cliargs, details, url):
         ad_negative_prompt = args["ad_negative_prompt"].lower()
 
         # Add <lora: ... > tags
-        if "loras_enabled" in args:
-            if args["loras_enabled"] == True:
-                for lora in args["loras"]:
-                    model = lora["model"]
-                    weight = lora["weight"]
-                    loraname = f"{model['SHA256'].lower()}"
-                    prompt = f"{prompt}, <lora:{loraname}:{weight}>"
-                    # Guessing this will work
-                    ad_prompt = f"{ad_prompt}, <lora:{loraname}:{weight}>"
+        if "loras_enabled" in args and args["loras_enabled"] == True:
+            for lora in args["loras"]:
+                weight = lora["weight"]
+                tag = f"<lora:{lora['hash']}:{weight}>"
+                prompt = f"{prompt}, {tag}"
+                ad_prompt = f"{ad_prompt}, {tag}"
+
+        # Add <lyco: ... > tags
+        if "locons_enabled" in args and args["locons_enabled"] == True:
+            logger.info(args["locons"])
+            for locon in args["locons"]:
+                te = locon["te"]
+                tag = f"<lyco:{locon['hash']}:{te}>"
+                prompt = f"{prompt}, {tag}"
+                ad_prompt = f"{ad_prompt}, {tag}"
 
         # Add embedding tokens
-        if "ti_enabled" in args:
-            if args["ti_enabled"] == True:
-                for embedding in args["embeddings"]:
-                    model = embedding["model"] 
-                    weight = embedding["weight"]
+        if "ti_enabled" in args and args["ti_enabled"] == True:
+            for embedding in args["embeddings"]:
+                model = embedding["model"] 
+                weight = embedding["weight"]
+                
+                # New hash logic
+                if "hash" in embedding:
+                    embeddingname = f"{model['hash']}"
+                    cdnurl = f"{cliargs['model_cdn']}/models/files/{embedding['hash']}"
+                    lookup_url = f"{url}/v3/modelbyhash/{embedding['hash']}"
+                    logger.info(f"ℹ️ Getting metadata about {embedding['hash']}...")
+                    results = requests.get(lookup_url,
+                        headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                    ).json()
+                    embeddingname = model['hash']
+                    filename = results["modelVersions"]["files"]["name"]
+                else:
                     embeddingname = f"{model['SHA256'].lower()}"
+                    cdnurl = f"{cliargs['model_cdn']}/models/files/{model['SHA256'].lower()}"
                     filename = model['filename'].lower()
-                    prompt = prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
-                    negative_prompt = negative_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
-                    # Guessing this will work
-                    ad_prompt = ad_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
-                    ad_negative_prompt = ad_negative_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
+
+                prompt = prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
+                negative_prompt = negative_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
+                # Guessing this will work
+                ad_prompt = ad_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
+                ad_negative_prompt = ad_negative_prompt.replace(f"<{filename.rsplit('.', 1)[0]}>",f"({embeddingname}:{weight})")
 
         if "offset_noise" in args:
             if args["offset_noise"] > 0.0 or args["offset_noise"] < 0.0:
@@ -353,34 +380,33 @@ def do_job(cliargs, details, url):
         if "loras_enabled" in args and args["loras_enabled"] == True:
             # Download LORAs.
             for lora_item in args["loras"]:
-                lora = lora_item["model"]
-                logger.info(lora)
-                # logger.info(f"🌎 Need to DL Lora:\n{lora}")
-                # cdnurl = f"{cliargs['model_cdn']}/models/{lora['model_id']}/{lora['model_version']}/{lora['model_file']}/{lora['filename']}"
-                cdnurl = f"{cliargs['model_cdn']}/models/files/{lora['SHA256'].lower()}"
                 cdndir = f"/home/stable/stable-diffusion-webui/models/Lora/civitai-cache"
-                os.makedirs(cdndir, exist_ok=True)
-                filetarget = f"{cdndir}/{lora['SHA256'].lower()}.{lora['filename'].split('.')[-1]}"
-                lockFileName = f"{filetarget}.lock"
-                # Take no action until lock file is gone
-                while os.path.isfile(lockFileName):
-                    logger.info(f"Looks like the LORA is being downloaded.  Waiting for 5 seconds...")
-                    time.sleep(5)
-                if not os.path.isfile(filetarget):
-                    if not os.path.isfile(lockFileName):
-                        with open(lockFileName, "w") as lockfile:
-                            lockfile.write("")
-                        try:
-                            logger.info(f"Downloading {filetarget} from {cdnurl}...")
-                            model = requests.get(cdnurl)
-                            response = requests.get(cdnurl)
-                            open(filetarget, "wb").write(response.content)
-                            logger.info(f"LORA downloaded.")
-                        except:
-                            pass
+                cdnurl = f"{cliargs['model_cdn']}/models/files/{lora_item['hash']}"
+                lookup_url = f"{url}/v3/modelbyhash/{lora_item['hash']}"
+                logger.info(f"ℹ️ Getting metadata about {lora_item['hash']}...")
+                results = requests.get(lookup_url,
+                    headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                ).json()
+                extension = results["modelVersions"]["files"]["name"].split('.')[-1]
+                filetarget = f"{cdndir}/{lora_item['hash']}.{extension}"
+                filename = f"{lora_item['hash']}.{extension}"
+                download_model(cdnurl,cdndir,filename)
 
-                    if os.path.exists(lockFileName):
-                        os.remove(lockFileName)
+        # LyCORIS DL
+        if "locons_enabled" in args and args["locons_enabled"] == True:
+            # Download LyCORISs.
+            for locon_item in args["locons"]:
+                cdndir = f"/home/stable/stable-diffusion-webui/models/LyCORIS/civitai-cache"
+                cdnurl = f"{cliargs['model_cdn']}/models/files/{locon_item['hash']}"
+                lookup_url = f"{url}/v3/modelbyhash/{locon_item['hash']}"
+                logger.info(f"ℹ️ Getting metadata about {locon_item['hash']}...")
+                results = requests.get(lookup_url,
+                    headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                ).json()
+                extension = results["modelVersions"]["files"]["name"].split('.')[-1]
+                filetarget = f"{cdndir}/{locon_item['hash']}.{extension}"
+                filename = f"{locon_item['hash']}.{extension}"
+                download_model(cdnurl,cdndir,filename)
 
         # Textual Inversion DL
         if "ti_enabled" in args and args["ti_enabled"] == True:
@@ -390,10 +416,22 @@ def do_job(cliargs, details, url):
                 logger.info(embedding)
                 # logger.info(f"🌎 Need to DL Embedding:\n{embedding}")
                 # cdnurl = f"{cliargs['model_cdn']}/models/{embedding['model_id']}/{embedding['model_version']}/{embedding['model_file']}/{embedding['filename']}"
-                cdnurl = f"{cliargs['model_cdn']}/models/files/{embedding['SHA256'].lower()}"
                 cdndir = f"/home/stable/stable-diffusion-webui/embeddings"
                 os.makedirs(cdndir, exist_ok=True)
-                filetarget = f"{cdndir}/{embedding['SHA256'].lower()}.{embedding['filename'].split('.')[-1]}"
+
+                if "hash" in embedding_item:
+                    cdnurl = f"{cliargs['model_cdn']}/models/files/{embedding['hash']}"
+                    lookup_url = f"{url}/v3/modelbyhash/{embedding['hash']}"
+                    logger.info(f"ℹ️ Getting metadata about {embedding['hash']}...")
+                    results = requests.get(lookup_url,
+                        headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+                    ).json()
+                    extension = results["modelVersions"]["files"]["name"].split('.')[-1]
+                    filetarget = f"{cdndir}/{embedding['hash']}.{extension}"
+                else:
+                    cdnurl = f"{cliargs['model_cdn']}/models/files/{embedding['SHA256'].lower()}"
+                    filetarget = f"{cdndir}/{embedding['SHA256'].lower()}.{embedding['filename'].split('.')[-1]}"
+                    
                 lockFileName = f"{filetarget}.lock"
                 # Take no action until lock file is gone
                 while os.path.isfile(lockFileName):
@@ -416,33 +454,23 @@ def do_job(cliargs, details, url):
                         os.remove(lockFileName)
 
         # Load SD model
-        if args['sd_model_checkpoint'] == "other":
-            om = args['other_model']
-            logger.info("🤖 Custom model detected.")
-            cdnurl = f"{cliargs['model_cdn']}/models/files/{om['SHA256'].lower()}"
+
+        if '.' not in args['sd_model_checkpoint']:
+            model_hash = args['sd_model_checkpoint'].lower()
+            # New hash logic
+            lookup_url = f"{url}/v3/modelbyhash/{args['sd_model_checkpoint']}"
+            logger.info(f"ℹ️ Getting metadata about {args['sd_model_checkpoint']}...")
+            results = requests.get(lookup_url,
+                headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
+            ).json()
+            
+            extension = results["modelVersions"]["files"]["name"].split('.')[-1]
+            logger.info(f"⭐ {args['sd_model_checkpoint']} is {extension} extension.")
+            cdnurl = f"{cliargs['model_cdn']}/models/files/{model_hash}"
             cdndir = f"/home/stable/stable-diffusion-webui/models/Stable-diffusion/civitai-cache"
-            extension = om['filename'].split('.')[-1]
-            filename = f"{om['SHA256'].lower()}.{extension}"
+            filename = f"{model_hash}.{extension}"
             download_model(cdnurl,cdndir,filename)
-            args['sd_model_checkpoint'] = f"civitai-cache_{om['SHA256'].lower()}"
-        else:
-            if '.' not in args['sd_model_checkpoint']:
-                model_hash = args['sd_model_checkpoint'].lower()
-                # New hash logic
-                lookup_url = f"{url}/v3/modelbyhash/{args['sd_model_checkpoint']}"
-                logger.info(f"ℹ️ Getting metadata about {args['sd_model_checkpoint']}...")
-                results = requests.get(lookup_url,
-                    headers = {'accept': 'application/json', 'Content-Type': 'application/json'}
-                ).json()
-                
-                extension = results["modelVersions"]["files"]["name"].split('.')[-1]
-                logger.info(f"⭐ {args['sd_model_checkpoint']} is {extension} extension.")
-                cdnurl = f"{cliargs['model_cdn']}/models/files/{model_hash}"
-                cdndir = f"/home/stable/stable-diffusion-webui/models/Stable-diffusion/civitai-cache"
-                filename = f"{model_hash}.{extension}"
-                download_model(cdnurl,cdndir,filename)
-                args['sd_model_checkpoint'] = f"civitai-cache_{model_hash}"     # A1111 treats folder paths with underscores because who knows why
-                # args['sd_model_checkpoint'] = model_hash
+            args['sd_model_checkpoint'] = f"civitai-cache_{model_hash}"     # A1111 treats folder paths with underscores because who knows why
                 
         override_settings = {}
         override_settings["sd_model_checkpoint"] = args["sd_model_checkpoint"]
@@ -506,29 +534,35 @@ def do_job(cliargs, details, url):
             }
             if args["enable_ad"] == True:
                 logger.info("🎉 After Detailer On")
-                payload["alwayson_scripts"]["After Detailer"] = {
+                payload["alwayson_scripts"]["ADetailer"] = {
                     "args" : [
                         args["enable_ad"],
-                        args["ad_model"],
-                        # args["ad_prompt"],
-                        # args["ad_negative_prompt"],
-                        ad_prompt,
-                        ad_negative_prompt,
-                        args["ad_conf"],
-                        args["ad_dilate_erode"],
-                        args["ad_x_offset"],
-                        args["ad_y_offset"],
-                        args["ad_mask_blur"],
-                        args["ad_denoising_strength"],
-                        args["ad_inpaint_full_res"],
-                        args["ad_inpaint_full_res_padding"],
-                        args["ad_use_inpaint_width_height"],
-                        args["ad_inpaint_width"],
-                        args["ad_inpaint_height"],
-                        args["ad_use_cfg_scale"],
-                        args["ad_cfg_scale"],
-                        args["ad_controlnet_model"],
-                        args["ad_controlnet_weight"]
+                        {
+                            "ad_model": args["ad_model"],
+                            "ad_prompt": ad_prompt,
+                            "ad_negative_prompt": ad_negative_prompt,
+                            "ad_confidence": args["ad_conf"],
+                            "ad_mask_min_ratio": 0.0,
+                            "ad_mask_max_ratio": 1.0,
+                            "ad_dilate_erode": args["ad_dilate_erode"],
+                            "ad_x_offset": args["ad_x_offset"],
+                            "ad_y_offset": args["ad_y_offset"],
+                            # TODO?
+                            "ad_mask_merge_invert": "None",
+                            "ad_mask_blur": args["ad_mask_blur"],
+                            "ad_denoising_strength": args["ad_denoising_strength"],
+                            "ad_inpaint_only_masked": args["ad_inpaint_full_res"],
+                            "ad_inpaint_only_masked_padding": args["ad_inpaint_full_res_padding"],
+                            "ad_use_inpaint_width_height": args["ad_use_inpaint_width_height"],
+                            "ad_inpaint_width": args["ad_inpaint_width"],
+                            "ad_inpaint_height": args["ad_inpaint_height"],
+                            "ad_use_steps": args["ad_use_steps"],
+                            "ad_steps": args["ad_steps"],
+                            "ad_use_cfg_scale": args["ad_use_cfg_scale"],
+                            "ad_cfg_scale": args["ad_cfg_scale"],
+                            "ad_controlnet_model": args["ad_controlnet_model"],
+                            "ad_controlnet_weight": args["ad_controlnet_weight"]
+                        }                        
                     ] 
                 }
             # logger.info(json.dumps(payload))
@@ -604,32 +638,38 @@ def do_job(cliargs, details, url):
             logger.info(f"🖼️ img2img Job: \n{args}")
             if args["enable_ad"] == True:
                 logger.info("🎉 After Detailer On")
-                payload["alwayson_scripts"]["After Detailer"] = {
+                payload["alwayson_scripts"]["ADetailer"] = {
                     "args" : [
                         args["enable_ad"],
-                        args["ad_model"],
-                        # args["ad_prompt"],
-                        # args["ad_negative_prompt"],
-                        ad_prompt,
-                        ad_negative_prompt,
-                        args["ad_conf"],
-                        args["ad_dilate_erode"],
-                        args["ad_x_offset"],
-                        args["ad_y_offset"],
-                        args["ad_mask_blur"],
-                        args["ad_denoising_strength"],
-                        args["ad_inpaint_full_res"],
-                        args["ad_inpaint_full_res_padding"],
-                        args["ad_use_inpaint_width_height"],
-                        args["ad_inpaint_width"],
-                        args["ad_inpaint_height"],
-                        args["ad_use_cfg_scale"],
-                        args["ad_cfg_scale"],
-                        args["ad_controlnet_model"],
-                        args["ad_controlnet_weight"]
+                        {
+                            "ad_model": args["ad_model"],
+                            "ad_prompt": ad_prompt,
+                            "ad_negative_prompt": ad_negative_prompt,
+                            "ad_confidence": args["ad_conf"],
+                            "ad_mask_min_ratio": 0.0,
+                            "ad_mask_max_ratio": 1.0,
+                            "ad_dilate_erode": args["ad_dilate_erode"],
+                            "ad_x_offset": args["ad_x_offset"],
+                            "ad_y_offset": args["ad_y_offset"],
+                            # TODO?
+                            "ad_mask_merge_invert": "None",
+                            "ad_mask_blur": args["ad_mask_blur"],
+                            "ad_denoising_strength": args["ad_denoising_strength"],
+                            "ad_inpaint_only_masked": args["ad_inpaint_full_res"],
+                            "ad_inpaint_only_masked_padding": args["ad_inpaint_full_res_padding"],
+                            "ad_use_inpaint_width_height": args["ad_use_inpaint_width_height"],
+                            "ad_inpaint_width": args["ad_inpaint_width"],
+                            "ad_inpaint_height": args["ad_inpaint_height"],
+                            "ad_use_steps": args["ad_use_steps"],
+                            "ad_steps": args["ad_steps"],
+                            "ad_use_cfg_scale": args["ad_use_cfg_scale"],
+                            "ad_cfg_scale": args["ad_cfg_scale"],
+                            "ad_controlnet_model": args["ad_controlnet_model"],
+                            "ad_controlnet_weight": args["ad_controlnet_weight"]
+                        }                        
                     ] 
                 }
-            # TODO: Allow uploaded images
+            # TODO: Allow uploaded images 
             initUrl = args["img2img_ref_img_url"]
             
             logger.info(f"🌍 Downloading image for img2img: {initUrl}")
@@ -668,12 +708,12 @@ def do_job(cliargs, details, url):
                         # "resize_mode": "Scale to Fit (Inner Fit)",
                         "resize_mode" : "Inner Fit (Scale to Fit)",
                         "lowvram": lowvram,
-                        "processor_res": args["controlnet_processor_resolution"],
+                        "processor_res": args["controlnet_preprocessor_resolution"],
                         "threshold_a": args["controlnet_threshold_a"],
                         "threshold_b": args["controlnet_threshold_b"],
                         "guidance_start": args["controlnet_guidance_start"],
                         "guidance_end": args["controlnet_guidance_end"],
-                        "control_mode": int(args["controlnet_control_mode"])
+                        "control_mode": int(args["controlnet_control_mode"]) 
                     }
                 ]
             }

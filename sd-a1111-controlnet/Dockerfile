@@ -26,11 +26,11 @@ USER stable
 ARG CACHEBUST=1
 RUN bash -c "cd ~ && COMMANDLINE_ARGS='--exit --skip-torch-cuda-test' bash <(wget -qO- https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui/master/webui.sh)"
 
-# Install xformers (shouldn't take too long since ninja is installed)
-# RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && pip install ninja && \
-# export FORCE_CUDA=1 && export TORCH_CUDA_ARCH_LIST=8.6 && CUDA_VISIBLE_DEVICES=0 && \
-# pip install git+https://github.com/facebookresearch/xformers.git#egg=xformers"
+# Install xformers
 RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && pip install xformers==0.0.19"
+
+# Install torch ***2.0***
+RUN bash -c "source /home/stable/stable-diffusion-webui/venv/bin/activate && pip install torch==2.0.0+cu118 torchvision==0.15.1+cu118 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118"
 
 # Add venv activation to .bashrc
 RUN echo "source /home/stable/stable-diffusion-webui/venv/bin/activate" >> ~/.bashrc
@@ -46,6 +46,8 @@ pip install -r workermode-requirements.txt"
 RUN git clone https://github.com/Mikubill/sd-webui-controlnet /home/stable/stable-diffusion-webui/extensions/sd-webui-controlnet
 # Add After Detailer extension
 RUN git clone https://github.com/Bing-su/adetailer.git /home/stable/stable-diffusion-webui/extensions/adetailer
+# Add Lycoris extension
+RUN git clone https://github.com/KohakuBlueleaf/a1111-sd-webui-lycoris.git /home/stable/stable-diffusion-webui/extensions/a1111-sd-webui-lycoris
 
 # Add workermode files
 ADD start.sh /start.sh
